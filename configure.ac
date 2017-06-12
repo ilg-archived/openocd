@@ -317,6 +317,10 @@ AC_ARG_ENABLE([riscv],
   AS_HELP_STRING([--enable-riscv], [Enable building support for RISC-V devices]),
   [build_riscv=$enableval], [build_riscv=no])
 
+AC_ARG_ENABLE([branding],
+  AS_HELP_STRING([--enable-branding], [Add a branding string to the greeting message]),
+  [build_branding=$enableval], [build_branding=none])
+
 AC_ARG_ENABLE([oocd_trace],
   AS_HELP_STRING([--enable-oocd_trace],
   [Enable building support for some prototype OpenOCD+trace ETM capture hardware]),
@@ -565,6 +569,11 @@ AS_IF([test "x$build_riscv" = "xyes"], [
   AC_DEFINE([BUILD_RISCV], [1], [1 if you want support for the RISC-V devices.])
 ], [
   AC_DEFINE([BUILD_RISCV], [0], [0 if you don't want support for the RISC-V devices.])
+])
+
+AS_IF([test "x$build_branding" = "xnone"], [
+], [
+  AC_DEFINE_UNQUOTED([BUILD_BRANDING], ["$build_branding"], [The branding string.])
 ])
 
 AS_IF([test "x$build_oocd_trace" = "xyes"], [

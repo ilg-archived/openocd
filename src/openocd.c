@@ -46,19 +46,9 @@
 #endif
 
 // [GNU MCU Eclipse]
-#if 0
+// Add --enable-branding='GNU MCU Eclipse' at build time
+#if defined(BUILD_BRANDING)
 
-#ifdef PKGBLDDATE
-#define OPENOCD_VERSION	\
-	"Open On-Chip Debugger " VERSION RELSTR " (" PKGBLDDATE ")"
-#else
-#define OPENOCD_VERSION	\
-	"Open On-Chip Debugger " VERSION RELSTR
-#endif
-
-#else
-
-#define OPENOCD_BRANDING "GNU MCU Eclipse "
 #if INTPTR_MAX == INT32_MAX
 #define OPENOCD_WORDSIZE "32-bits "
 #elif INTPTR_MAX == INT64_MAX
@@ -68,11 +58,21 @@
 #endif
 
 #ifdef PKGBLDDATE
-#define OPENOCD_VERSION	OPENOCD_BRANDING OPENOCD_WORDSIZE \
+#define OPENOCD_VERSION	BUILD_BRANDING " " OPENOCD_WORDSIZE \
     "Open On-Chip Debugger " VERSION RELSTR " (" PKGBLDDATE ")"
 #else
-#define OPENOCD_VERSION	OPENOCD_BRANDING OPENOCD_WORDSIZE \
+#define OPENOCD_VERSION	BUILD_BRANDING " " OPENOCD_WORDSIZE \
     "Open On-Chip Debugger " VERSION RELSTR
+#endif
+
+#else
+
+#ifdef PKGBLDDATE
+#define OPENOCD_VERSION	\
+	"Open On-Chip Debugger " VERSION RELSTR " (" PKGBLDDATE ")"
+#else
+#define OPENOCD_VERSION	\
+	"Open On-Chip Debugger " VERSION RELSTR
 #endif
 
 #endif
