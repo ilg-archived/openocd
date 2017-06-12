@@ -8,7 +8,7 @@
 #include "rtos.h"
 #include "server/gdb_server.h"
 
-#if defined(GNU_MCU_ECLIPSE_RISCV)
+#if BUILD_RISCV == 1
 
 static int riscv_update_threads(struct rtos *rtos);
 static int riscv_gdb_thread_packet(struct connection *connection, const char *packet, int packet_size);
