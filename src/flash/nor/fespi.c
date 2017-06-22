@@ -802,7 +802,7 @@ static int steps_execute(struct algorithm_steps *as,
 		int retval = target_write_buffer(target, data_wa->address, bytes,
 				data_buf);
 		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to write data to " TARGET_ADDR_FMT ": %d",
+			LOG_ERROR("Failed to write data to 0x%" TARGET_PRIxADDR ": %d",
 					data_wa->address, retval);
 			return retval;
 		}
@@ -811,7 +811,7 @@ static int steps_execute(struct algorithm_steps *as,
 				algorithm_wa->address, algorithm_wa->address + 4,
 				10000, NULL);
 		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to execute algorithm at " TARGET_ADDR_FMT ": %d",
+			LOG_ERROR("Failed to execute algorithm at 0x%" TARGET_PRIxADDR ": %d",
 					algorithm_wa->address, retval);
 			return retval;
 		}
@@ -866,7 +866,7 @@ static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 		retval = target_write_buffer(target, algorithm_wa->address,
 				sizeof(algorithm_bin), algorithm_bin);
 		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to write code to " TARGET_ADDR_FMT ": %d",
+			LOG_ERROR("Failed to write code to 0x%" TARGET_PRIxADDR ": %d",
 					algorithm_wa->address, retval);
 			target_free_working_area(target, algorithm_wa);
 			algorithm_wa = NULL;

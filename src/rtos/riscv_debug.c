@@ -5,7 +5,6 @@
 #include "riscv_debug.h"
 #include "target/target.h"
 #include "target/riscv/riscv.h"
-#include "rtos.h"
 #include "server/gdb_server.h"
 
 #if BUILD_RISCV == 1
@@ -42,7 +41,7 @@ static int riscv_create_rtos(struct target *target)
 	return JIM_OK;
 }
 
-static int riscv_update_threads(struct rtos *rtos)
+int riscv_update_threads(struct rtos *rtos)
 {
 	LOG_DEBUG("Updating the RISC-V Hart List");
 

@@ -110,35 +110,35 @@ extern struct target_type riscv_target;
 #endif
 
 static struct target_type *target_types[] = {
-    &arm7tdmi_target,
-    &arm9tdmi_target,
-    &arm920t_target,
-    &arm720t_target,
-    &arm966e_target,
-    &arm946e_target,
-    &arm926ejs_target,
-    &fa526_target,
-    &feroceon_target,
-    &dragonite_target,
-    &xscale_target,
-    &cortexm_target,
-    &cortexa_target,
-    &cortexr4_target,
-    &arm11_target,
-    &ls1_sap_target,
-    &mips_m4k_target,
-    &avr_target,
-    &dsp563xx_target,
-    &dsp5680xx_target,
-    &testee_target,
-    &avr32_ap7k_target,
-    &hla_target,
-    &nds32_v2_target,
-    &nds32_v3_target,
-    &nds32_v3m_target,
-    &or1k_target,
-    &quark_x10xx_target,
-    &quark_d20xx_target,
+	&arm7tdmi_target,
+	&arm9tdmi_target,
+	&arm920t_target,
+	&arm720t_target,
+	&arm966e_target,
+	&arm946e_target,
+	&arm926ejs_target,
+	&fa526_target,
+	&feroceon_target,
+	&dragonite_target,
+	&xscale_target,
+	&cortexm_target,
+	&cortexa_target,
+	&cortexr4_target,
+	&arm11_target,
+	&ls1_sap_target,
+	&mips_m4k_target,
+	&avr_target,
+	&dsp563xx_target,
+	&dsp5680xx_target,
+	&testee_target,
+	&avr32_ap7k_target,
+	&hla_target,
+	&nds32_v2_target,
+	&nds32_v3_target,
+	&nds32_v3m_target,
+	&or1k_target,
+	&quark_x10xx_target,
+	&quark_d20xx_target,
 #if BUILD_TARGET64
     &aarch64_target,
 #endif
@@ -2012,12 +2012,7 @@ int target_arch_state(struct target *target)
         
         return ERROR_OK;
     }
-    
-#if BUILD_RISCV == 1
-    LOG_USER("%s: target state: %s", target_name(target),
-             target_state_name(target));
-#endif
-    
+
     if (target->state != TARGET_HALTED)
         return ERROR_OK;
     
