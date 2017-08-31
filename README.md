@@ -12,7 +12,7 @@ The **GNU MCU Eclipse OpenOCD** also tracks the changes from the [RISC-V OpenOCD
 
 * [Overview](http://gnu-mcu-eclipse.github.io/openocd/) (read me first!)
 * [Install](http://gnu-mcu-eclipse.github.io/openocd/install)
-* Eclipse plug-in
+* [Eclipse plug-in](https://gnu-mcu-eclipse.github.io/debug/openocd/)
 * [Support](https://github.com/gnu-mcu-eclipse/openocd/issues/1)
 
 ## How to build
