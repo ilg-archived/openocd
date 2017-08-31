@@ -10,17 +10,17 @@ The **GNU MCU Eclipse OpenOCD** also tracks the changes from the [RISC-V OpenOCD
 
 ## How to use
 
-* [Overview](http://gnuarmeclipse.github.io/openocd/) (read me first!)
-* [Install](http://gnuarmeclipse.github.io/openocd/install)
+* [Overview](http://gnu-mcu-eclipse.github.io/openocd/) (read me first!)
+* [Install](http://gnu-mcu-eclipse.github.io/openocd/install)
 * Eclipse plug-in
-* [Support](https://github.com/gnuarmeclipse/openocd/issues/1)
+* [Support](https://github.com/gnu-mcu-eclipse/openocd/issues/1)
 
 ## How to build
 
-* [How to build](http://gnuarmeclipse.github.io/openocd/how-to-build) (using Docker containers)
-* [Change log](http://gnuarmeclipse.github.io/openocd/change-log)
+* [How to build](https://gnu-mcu-eclipse.github.io/openocd/build-procedure/) (using Docker containers)
+* [Change log](https://gnu-mcu-eclipse.github.io/openocd/change-log/)
 
 ## Releases & binaries
 
-See the [releases](http://gnuarmeclipse.github.io/openocd/releases) page.
+See the [releases](https://gnu-mcu-eclipse.github.io/openocd/releases/) page.
 Binaries for most platforms can be downloaded from [GitHub Releases](https://github.com/gnu-mcu-eclipse/openocd/releases).
