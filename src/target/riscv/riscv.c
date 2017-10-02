@@ -29,32 +29,32 @@
  * Code structure
  *
  * At the bottom of the stack are the OpenOCD JTAG functions:
- * 		jtag_add_[id]r_scan
- * 		jtag_execute_query
- * 		jtag_add_runtest
+ *		jtag_add_[id]r_scan
+ *		jtag_execute_query
+ *		jtag_add_runtest
  *
  * There are a few functions to just instantly shift a register and get its
  * value:
- * 		dtmcontrol_scan
- * 		idcode_scan
- * 		dbus_scan
+ *		dtmcontrol_scan
+ *		idcode_scan
+ *		dbus_scan
  *
  * Because doing one scan and waiting for the result is slow, most functions
  * batch up a bunch of dbus writes and then execute them all at once. They use
  * the scans "class" for this:
- * 		scans_new
- * 		scans_delete
- * 		scans_execute
- * 		scans_add_...
+ *		scans_new
+ *		scans_delete
+ *		scans_execute
+ *		scans_add_...
  * Usually you new(), call a bunch of add functions, then execute() and look
  * at the results by calling scans_get...()
  *
  * Optimized functions will directly use the scans class above, but slightly
  * lazier code will use the cache functions that in turn use the scans
  * functions:
- * 		cache_get...
- * 		cache_set...
- * 		cache_write
+ *		cache_get...
+ *		cache_set...
+ *		cache_write
  * cache_set... update a local structure, which is then synced to the target
  * with cache_write(). Only Debug RAM words that are actually changed are sent
  * to the target. Afterwards use cache_get... to read results.
@@ -77,8 +77,8 @@
 #define CSR_BPCONTROL_BPACTION	(0xff<<11)
 
 #define DEBUG_ROM_START         0x800
-#define DEBUG_ROM_RESUME        (DEBUG_ROM_START + 4)
-#define DEBUG_ROM_EXCEPTION     (DEBUG_ROM_START + 8)
+#define DEBUG_ROM_RESUME	(DEBUG_ROM_START + 4)
+#define DEBUG_ROM_EXCEPTION	(DEBUG_ROM_START + 8)
 #define DEBUG_RAM_START         0x400
 
 #define SETHALTNOT				0x10c
@@ -150,7 +150,6 @@ typedef enum slot {
 /*** Info about the core being debugged. ***/
 
 #define DBUS_ADDRESS_UNKNOWN	0xffff
-#define WALL_CLOCK_TIMEOUT		2
 
 // gdb's register list is defined in riscv_gdb_reg_names gdb/riscv-tdep.c in
 // its source tree. We must interpret the numbers the same here.
@@ -194,6 +193,12 @@ struct trigger {
 	bool read, write, execute;
 	int unique_id;
 };
+
+/* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
+int riscv_command_timeout_sec = DEFAULT_COMMAND_TIMEOUT_SEC;
+
+/* Wall-clock timeout after reset. Settable via RISC-V Target commands.*/
+int riscv_reset_timeout_sec = DEFAULT_RESET_TIMEOUT_SEC;
 
 static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 {
@@ -624,7 +629,7 @@ static int riscv_examine(struct target *target)
 {
 	LOG_DEBUG("riscv_examine()");
 	if (target_was_examined(target)) {
-		LOG_DEBUG("Target was already examined.\n");
+		LOG_DEBUG("Target was already examined.");
 		return ERROR_OK;
 	}
 
@@ -671,38 +676,19 @@ static int old_or_new_riscv_halt(struct target *target)
 		return riscv_openocd_halt(target);
 }
 
-static int oldriscv_assert_reset(struct target *target)
+static int riscv_assert_reset(struct target *target)
 {
-	LOG_DEBUG("RISCV ASSERT RESET");
 	struct target_type *tt = get_target_type(target);
 	return tt->assert_reset(target);
 }
 
-static int oldriscv_deassert_reset(struct target *target)
+static int riscv_deassert_reset(struct target *target)
 {
 	LOG_DEBUG("RISCV DEASSERT RESET");
 	struct target_type *tt = get_target_type(target);
 	return tt->deassert_reset(target);
 }
 
-
-static int old_or_new_riscv_assert_reset(struct target *target)
-{
-	RISCV_INFO(r);
-	if (r->is_halted == NULL)
-		return oldriscv_assert_reset(target);
-	else
-		return riscv_openocd_assert_reset(target);
-}
-
-static int old_or_new_riscv_deassert_reset(struct target *target)
-{
-	RISCV_INFO(r);
-	if (r->is_halted == NULL)
-		return oldriscv_deassert_reset(target);
-	else
-		return riscv_openocd_deassert_reset(target);
-}
 
 static int oldriscv_resume(struct target *target, int current, uint32_t address,
 		int handle_breakpoints, int debug_execution)
@@ -997,7 +983,7 @@ int riscv_openocd_poll(struct target *target)
 
 		/* If we're here then at least one hart triggered.  That means
 		 * we want to go and halt _every_ hart in the system, as that's
-		 * the invariant we hold here.  Some harts might have already
+		 * the invariant we hold here.	Some harts might have already
 		 * halted (as we're either in single-step mode or they also
 		 * triggered a breakpoint), so don't attempt to halt those
 		 * harts. */
@@ -1110,27 +1096,69 @@ int riscv_openocd_step(
 	return out;
 }
 
-int riscv_openocd_assert_reset(struct target *target)
-{
-	LOG_DEBUG("asserting reset for all harts");
-	int out = riscv_reset_all_harts(target);
-	if (out != ERROR_OK) {
-		LOG_ERROR("unable to reset all harts");
-		return out;
+/* Command Handlers */
+COMMAND_HANDLER(riscv_set_command_timeout_sec) {
+
+	if (CMD_ARGC != 1) {
+		LOG_ERROR("Command takes exactly 1 parameter");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	int timeout = atoi(CMD_ARGV[0]);
+	if (timeout <= 0){
+		LOG_ERROR("%s is not a valid integer argument for command.", CMD_ARGV[0]);
+		return ERROR_FAIL;
 	}
 
-	return out;
-}
+	riscv_command_timeout_sec = timeout;
 
-int riscv_openocd_deassert_reset(struct target *target)
-{
-	LOG_DEBUG("deasserting reset for all harts");
-	if (target->reset_halt)
-		riscv_halt_all_harts(target);
-	else
-		riscv_resume_all_harts(target);
 	return ERROR_OK;
 }
+
+COMMAND_HANDLER(riscv_set_reset_timeout_sec) {
+
+	if (CMD_ARGC != 1) {
+			LOG_ERROR("Command takes exactly 1 parameter");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	int timeout = atoi(CMD_ARGV[0]);
+	if (timeout <= 0){
+		LOG_ERROR("%s is not a valid integer argument for command.", CMD_ARGV[0]);
+		return ERROR_FAIL;
+	}
+
+	riscv_reset_timeout_sec = timeout;
+	return ERROR_OK;
+}
+
+
+static const struct command_registration riscv_exec_command_handlers[] = {
+	{
+		.name = "set_command_timeout_sec",
+		.handler = riscv_set_command_timeout_sec,
+		.mode = COMMAND_ANY,
+		.usage = "riscv set_command_timeout_sec [sec]",
+		.help = "Set the wall-clock timeout (in seconds) for individual commands"
+	 },
+	 {
+		.name = "set_reset_timeout_sec",
+		.handler = riscv_set_reset_timeout_sec,
+		.mode = COMMAND_ANY,
+		.usage = "riscv set_reset_timeout_sec [sec]",
+		.help = "Set the wall-clock timeout (in seconds) after reset is deasserted"
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+const struct command_registration riscv_command_handlers[] = {
+	{
+		.name = "riscv",
+		.mode = COMMAND_ANY,
+		.help = "RISC-V Command Group",
+		.usage = "",
+		.chain = riscv_exec_command_handlers
+	},
+	COMMAND_REGISTRATION_DONE
+};
 
 struct target_type riscv_target =
 {
@@ -1147,8 +1175,8 @@ struct target_type riscv_target =
 	.resume = old_or_new_riscv_resume,
 	.step = old_or_new_riscv_step,
 
-	.assert_reset = old_or_new_riscv_assert_reset,
-	.deassert_reset = old_or_new_riscv_deassert_reset,
+	.assert_reset = riscv_assert_reset,
+	.deassert_reset = riscv_deassert_reset,
 
 	.read_memory = riscv_read_memory,
 	.write_memory = riscv_write_memory,
@@ -1167,6 +1195,8 @@ struct target_type riscv_target =
 	.arch_state = riscv_arch_state,
 
 	.run_algorithm = riscv_run_algorithm,
+
+	.commands = riscv_command_handlers
 };
 
 /*** RISC-V Interface ***/
@@ -1240,33 +1270,6 @@ int riscv_resume_one_hart(struct target *target, int hartid)
 
 	r->on_resume(target);
 	r->resume_current_hart(target);
-	return ERROR_OK;
-}
-
-int riscv_reset_all_harts(struct target *target)
-{
-	for (int i = 0; i < riscv_count_harts(target); ++i) {
-		if (!riscv_hart_enabled(target, i))
-			continue;
-
-		riscv_reset_one_hart(target, i);
-	}
-
-	riscv_invalidate_register_cache(target);
-	return ERROR_OK;
-}
-
-int riscv_reset_one_hart(struct target *target, int hartid)
-{
-	RISCV_INFO(r);
-	LOG_DEBUG("resetting hart %d", hartid);
-	riscv_halt_one_hart(target, hartid);
-	riscv_set_current_hartid(target, hartid);
-	r->reset_current_hart(target);
-	/* At this point the hart must be halted.  On platforms that support
-	 * "reset halt" exactly we expect the hart to have been halted before
-	 * executing any instructions, while on older cores it'll just have
-	 * halted quickly. */
 	return ERROR_OK;
 }
 
@@ -1576,7 +1579,6 @@ int riscv_enumerate_triggers(struct target *target)
 			tselect_rb &= ~(1ULL << (riscv_xlen(target)-1));
 			if (tselect_rb != t)
 				break;
-
 			uint64_t tdata1 = riscv_get_register_on_hart(target, hartid,
 					GDB_REGNO_TDATA1);
 			int type = get_field(tdata1, MCONTROL_TYPE(riscv_xlen(target)));
@@ -1644,6 +1646,8 @@ const char *gdb_regno_name(enum gdb_regno regno)
 				sprintf(buf, "x%d", regno - GDB_REGNO_XPR0);
 			} else if (regno >= GDB_REGNO_CSR0 && regno <= GDB_REGNO_CSR4095) {
 				sprintf(buf, "csr%d", regno - GDB_REGNO_CSR0);
+			} else if (regno >= GDB_REGNO_FPR0 && regno <= GDB_REGNO_FPR31) {
+				sprintf(buf, "f%d", regno - GDB_REGNO_FPR0);
 			} else {
 				sprintf(buf, "gdb_regno_%d", regno);
 			}
