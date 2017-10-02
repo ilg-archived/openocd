@@ -14,8 +14,8 @@ noinst_LTLIBRARIES += %D%/librtos.la
 	%D%/ChibiOS.c \
 	%D%/embKernel.c \
 	%D%/mqx.c \
-	%D%/uCOS-III.c \
 	%D%/riscv_debug.c \
+	%D%/uCOS-III.c \
 	%D%/rtos.h \
 	%D%/rtos_standard_stackings.h \
 	%D%/rtos_ecos_stackings.h \
