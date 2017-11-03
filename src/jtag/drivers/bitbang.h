@@ -27,12 +27,13 @@
 struct bitbang_interface {
 	/* low level callbacks (for bitbang)
 	 */
-
+#if BUILD_RISCV == 1
 	/* Either read() or sample()/read_sample() must be implemented. */
 
 	/* Sample TDO and return 0 or 1. */
+#endif
 	int (*read)(void);
-
+#if BUILD_RISCV == 1
 	/* The sample functions allow an interface to batch a number of writes and
 	 * sample requests together. Not waiting for a value to come back can
 	 * greatly increase throughput. */
@@ -45,6 +46,7 @@ struct bitbang_interface {
 	int (*read_sample)(void);
 
 	/* Set TCK, TMS, and TDI to the given values. */
+#endif
 	void (*write)(int tck, int tms, int tdi);
 	void (*reset)(int trst, int srst);
 	void (*blink)(int on);

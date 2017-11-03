@@ -40,6 +40,7 @@
 static char *remote_bitbang_host;
 static char *remote_bitbang_port;
 
+#if BUILD_RISCV == 1
 static FILE *remote_bitbang_in;
 static FILE *remote_bitbang_out;
 static int remote_bitbang_fd;
@@ -92,6 +93,10 @@ static void remote_bitbang_fill_buf(void)
 		}
 	}
 }
+#else
+FILE *remote_bitbang_in;
+FILE *remote_bitbang_out;
+#endif
 
 static void remote_bitbang_putc(int c)
 {
@@ -125,6 +130,7 @@ static int remote_bitbang_quit(void)
 	return ERROR_OK;
 }
 
+#if BUILD_RISCV == 1
 static int char_to_int(int c)
 {
 	switch (c) {
@@ -177,6 +183,34 @@ static int remote_bitbang_read_sample(void)
 	}
 	return remote_bitbang_rread();
 }
+#else
+/* Get the next read response. */
+static int remote_bitbang_rread(void)
+{
+	if (EOF == fflush(remote_bitbang_out)) {
+		remote_bitbang_quit();
+		REMOTE_BITBANG_RAISE_ERROR("fflush: %s", strerror(errno));
+	}
+
+	int c = fgetc(remote_bitbang_in);
+	switch (c) {
+		case '0':
+			return 0;
+		case '1':
+			return 1;
+		default:
+			remote_bitbang_quit();
+			REMOTE_BITBANG_RAISE_ERROR(
+					"remote_bitbang: invalid read response: %c(%i)", c, c);
+	}
+}
+
+static int remote_bitbang_read(void)
+{
+	remote_bitbang_putc('R');
+	return remote_bitbang_rread();
+}
+#endif
 
 static void remote_bitbang_write(int tck, int tms, int tdi)
 {
@@ -197,9 +231,13 @@ static void remote_bitbang_blink(int on)
 }
 
 static struct bitbang_interface remote_bitbang_bitbang = {
+#if BUILD_RISCV == 1
 	.buf_size = sizeof(remote_bitbang_buf) - 1,
 	.sample = &remote_bitbang_sample,
 	.read_sample = &remote_bitbang_read_sample,
+#else
+	.read = &remote_bitbang_read,
+#endif
 	.write = &remote_bitbang_write,
 	.reset = &remote_bitbang_reset,
 	.blink = &remote_bitbang_blink,
@@ -209,7 +247,11 @@ static int remote_bitbang_init_tcp(void)
 {
 	struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM };
 	struct addrinfo *result, *rp;
+#if BUILD_RISCV == 1
 	int fd = 0;
+#else
+	int fd;
+#endif
 
 	LOG_INFO("Connecting to %s:%s",
 			remote_bitbang_host ? remote_bitbang_host : "localhost",
@@ -277,6 +319,7 @@ static int remote_bitbang_init_unix(void)
 
 static int remote_bitbang_init(void)
 {
+#if BUILD_RISCV == 1
 	bitbang_interface = &remote_bitbang_bitbang;
 
 	remote_bitbang_start = 0;
@@ -299,6 +342,28 @@ static int remote_bitbang_init(void)
 	}
 
 	remote_bitbang_out = fdopen(remote_bitbang_fd, "w");
+#else
+	int fd;
+	bitbang_interface = &remote_bitbang_bitbang;
+	
+	LOG_INFO("Initializing remote_bitbang driver");
+	if (remote_bitbang_port == NULL)
+		fd = remote_bitbang_init_unix();
+	else
+		fd = remote_bitbang_init_tcp();
+
+	if (fd < 0)
+		return fd;
+
+	remote_bitbang_in = fdopen(fd, "r");
+	if (remote_bitbang_in == NULL) {
+		LOG_ERROR("fdopen: failed to open read stream");
+		close(fd);
+		return ERROR_FAIL;
+	}
+
+	remote_bitbang_out = fdopen(fd, "w");
+#endif
 	if (remote_bitbang_out == NULL) {
 		LOG_ERROR("fdopen: failed to open write stream");
 		fclose(remote_bitbang_in);
