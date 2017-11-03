@@ -131,6 +131,11 @@ struct reg {
 	bool valid;
 	/* When false, the register doesn't actually exist in the target. */
 	bool exist;
+// [GNU MCU Eclipse]
+#if 1
+	/* When true, the register is not shown in monitor reg. */
+	bool no_show;
+#endif
 	/* Size of the register in bits. */
 	uint32_t size;
 	/* Used for generating XML description of registers. Can be set to NULL for

@@ -2779,6 +2779,11 @@ COMMAND_HANDLER(handle_reg_command)
 			for (i = 0, reg = cache->reg_list;
 					i < cache->num_regs;
 					i++, reg++, count++) {
+// [GNU MCU Eclipse]
+#if 1
+				if (reg->no_show)
+					continue;
+#endif
 				/* only print cached values if they are valid */
 				if (reg->valid) {
 					value = buf_to_str(reg->value,

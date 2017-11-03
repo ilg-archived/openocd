@@ -950,8 +950,16 @@ static int init_target(struct command_context *cmd_ctx,
 			sprintf(reg_name, "f%d", i - GDB_REGNO_FPR0);
 		} else if (i >= GDB_REGNO_CSR0 && i <= GDB_REGNO_CSR4095) {
 			sprintf(reg_name, "csr%d", i - GDB_REGNO_CSR0);
+// [GNU MCU Eclipse]
+#if 1
+			r->no_show = true;
+#endif
 		} else if (i == GDB_REGNO_PRIV) {
 			sprintf(reg_name, "priv");
+// [GNU MCU Eclipse]
+#if 1
+			r->no_show = true;
+#endif
 		}
 		if (reg_name[0]) {
 			r->name = reg_name;
