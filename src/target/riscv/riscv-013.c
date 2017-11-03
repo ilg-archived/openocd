@@ -142,10 +142,6 @@ typedef struct {
 	unsigned datacount;
 	/* Number of words in the Program Buffer. */
 	unsigned progsize;
-	/* Number of Program Buffer registers. */
-	/* Number of words in Debug RAM. */
-	uint64_t tselect;
-	bool tselect_dirty;
 	/* The value that mstatus actually has on the target right now. This is not
 	 * the value we present to the user. That one may be stored in the
 	 * reg_cache. */
@@ -1718,7 +1714,7 @@ struct target_type riscv013_target =
 /*** 0.13-specific implementations of various RISC-V helper functions. ***/
 static riscv_reg_t riscv013_get_register(struct target *target, int hid, int rid)
 {
-	LOG_DEBUG("reading register 0x%08x on hart %d", rid, hid);
+	LOG_DEBUG("reading register %s on hart %d", gdb_regno_name(rid), hid);
 
 	riscv_set_current_hartid(target, hid);
 
@@ -1732,7 +1728,7 @@ static riscv_reg_t riscv013_get_register(struct target *target, int hid, int rid
 		LOG_DEBUG("read PC from DPC: 0x%016" PRIx64, out);
 	} else if (rid == GDB_REGNO_PRIV) {
 		uint64_t dcsr;
-		register_read_direct(target, &dcsr, CSR_DCSR);
+		register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 		buf_set_u64((unsigned char *)&out, 0, 8, get_field(dcsr, CSR_DCSR_PRV));
 	} else {
 		int result = register_read_direct(target, &out, rid);
@@ -1750,7 +1746,8 @@ static riscv_reg_t riscv013_get_register(struct target *target, int hid, int rid
 
 static void riscv013_set_register(struct target *target, int hid, int rid, uint64_t value)
 {
-	LOG_DEBUG("writing register 0x%08x on hart %d", rid, hid);
+	LOG_DEBUG("writing 0x%" PRIx64 " to register %s on hart %d", value,
+			gdb_regno_name(rid), hid);
 
 	riscv_set_current_hartid(target, hid);
 
@@ -1765,9 +1762,9 @@ static void riscv013_set_register(struct target *target, int hid, int rid, uint6
 		assert(value == actual_value);
 	} else if (rid == GDB_REGNO_PRIV) {
 		uint64_t dcsr;
-		register_read_direct(target, &dcsr, CSR_DCSR);
+		register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 		dcsr = set_field(dcsr, CSR_DCSR_PRV, value);
-		register_write_direct(target, CSR_DCSR, dcsr);
+		register_write_direct(target, GDB_REGNO_DCSR, dcsr);
 	} else {
 		register_write_direct(target, rid, value);
 	}

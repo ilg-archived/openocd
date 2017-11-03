@@ -478,17 +478,11 @@ riscv_addr_t riscv_program_gah(struct riscv_program *p, riscv_addr_t addr)
 
 riscv_addr_t riscv_program_gal(struct riscv_program *p, riscv_addr_t addr)
 {
-#if 1
-    // [ilg] I'm not sure I understand the logic behind the original statement,
-    // but on macOS it fails to compile.
 	if (addr > 0) {
 	    return (addr & 0x7FF);
 	} else {
 	    return 0;
 	}
-#else 
-	return ((addr > 0) ? 1 : 0) * (abs(addr) & 0x7FF);
-#endif
 }
 
 int riscv_program_lah(struct riscv_program *p, enum gdb_regno d, riscv_addr_t addr)
