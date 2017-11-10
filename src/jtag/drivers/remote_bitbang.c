@@ -40,7 +40,8 @@
 static char *remote_bitbang_host;
 static char *remote_bitbang_port;
 
-#if BUILD_RISCV == 1
+// [ILG] WORKAROUND
+#if 0 //BUILD_RISCV == 1
 static FILE *remote_bitbang_in;
 static FILE *remote_bitbang_out;
 static int remote_bitbang_fd;
@@ -130,7 +131,8 @@ static int remote_bitbang_quit(void)
 	return ERROR_OK;
 }
 
-#if BUILD_RISCV == 1
+// [ILG] WORKAROUND
+#if 0 //BUILD_RISCV == 1
 static int char_to_int(int c)
 {
 	switch (c) {
@@ -231,7 +233,8 @@ static void remote_bitbang_blink(int on)
 }
 
 static struct bitbang_interface remote_bitbang_bitbang = {
-#if BUILD_RISCV == 1
+// [ILG] WORKAROUND
+#if 0 //BUILD_RISCV == 1
 	.buf_size = sizeof(remote_bitbang_buf) - 1,
 	.sample = &remote_bitbang_sample,
 	.read_sample = &remote_bitbang_read_sample,
@@ -319,7 +322,8 @@ static int remote_bitbang_init_unix(void)
 
 static int remote_bitbang_init(void)
 {
-#if BUILD_RISCV == 1
+// [ILG] WORKAROUND
+#if 0 //BUILD_RISCV == 1
 	bitbang_interface = &remote_bitbang_bitbang;
 
 	remote_bitbang_start = 0;
