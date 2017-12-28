@@ -1170,7 +1170,7 @@ static int gdb_get_registers_packet(struct connection *connection,
 	reg_packet_p = reg_packet;
 
 	for (i = 0; i < reg_list_size; i++) {
-// [ILG] WORKAROUND
+// [ILG] WORKAROUND to make it work on other targets.
 #if 0 // BUILD_RISCV == 1
 		if (!reg_list[i]->valid) {
 			retval = reg_list[i]->type->get(reg_list[i]);
@@ -1245,7 +1245,7 @@ static int gdb_set_registers_packet(struct connection *connection,
 		bin_buf = malloc(DIV_ROUND_UP(reg_list[i]->size, 8));
 		gdb_target_to_reg(target, packet_p, chars, bin_buf);
 
-// [ILG] WORKAROUND
+// [ILG] WORKAROUND to make it work on other targets.
 #if 0 // BUILD_RISCV == 1
 		retval = reg_list[i]->type->set(reg_list[i], bin_buf);
 		if (retval != ERROR_OK) {
@@ -1296,7 +1296,7 @@ static int gdb_get_register_packet(struct connection *connection,
 		return ERROR_SERVER_REMOTE_CLOSED;
 	}
 
-// [ILG] WORKAROUND
+// [ILG] WORKAROUND to make it work on other targets.
 #if 0 // BUILD_RISCV == 1
 		if (!reg_list[reg_num]->valid) {
 	        retval = reg_list[reg_num]->type->get(reg_list[reg_num]);
@@ -1363,7 +1363,7 @@ static int gdb_set_register_packet(struct connection *connection,
 
 	gdb_target_to_reg(target, separator + 1, chars, bin_buf);
 
-// [ILG] WORKAROUND
+// [ILG] WORKAROUND to make it work on other targets.
 #if 0 // BUILD_RISCV == 1
 	retval = reg_list[reg_num]->type->set(reg_list[reg_num], bin_buf);
 	if (retval != ERROR_OK) {
@@ -2614,8 +2614,8 @@ static int gdb_v_packet(struct connection *connection,
 	struct gdb_connection *gdb_connection = connection->priv;
 	int result;
 
-#if BUILD_RISCV == 1
 	struct target *target = get_target_from_connection(connection);
+#if BUILD_RISCV == 1
 	if (target->rtos != NULL && target->rtos->gdb_v_packet != NULL) {
 		int out = target->rtos->gdb_v_packet(connection, packet, packet_size);
 		if (out != GDB_THREAD_PACKET_NOT_CONSUMED)
