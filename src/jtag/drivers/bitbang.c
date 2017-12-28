@@ -245,8 +245,8 @@ static void bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 #else
 		if (type != SCAN_OUT)
 			val = bitbang_interface->read();
+#endif
 
-#endif		
 		bitbang_interface->write(1, tms, tdi);
 
 #if BUILD_RISCV == 1
