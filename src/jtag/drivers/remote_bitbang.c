@@ -61,7 +61,7 @@ static int remote_bitbang_buf_full(void)
 /* Read any incoming data, placing it into the buffer. */
 static void remote_bitbang_fill_buf(void)
 {
-	fcntl(remote_bitbang_fd, F_SETFL, O_NONBLOCK);
+	socket_nonblock(remote_bitbang_fd);
 	while (!remote_bitbang_buf_full()) {
 		unsigned contiguous_available_space;
 		if (remote_bitbang_end >= remote_bitbang_start) {
@@ -78,10 +78,8 @@ static void remote_bitbang_fill_buf(void)
 				contiguous_available_space);
 		if (count > 0) {
 			remote_bitbang_end += count;
-			// TODO: check for overflow.
-			if (remote_bitbang_end == sizeof(remote_bitbang_buf)) {
+			if (remote_bitbang_end == sizeof(remote_bitbang_buf))
 				remote_bitbang_end = 0;
-			}
 		} else if (count == 0) {
 			return;
 		} else if (count < 0) {
@@ -156,7 +154,7 @@ static int remote_bitbang_rread(void)
 	}
 
 	/* Enable blocking access. */
-	fcntl(remote_bitbang_fd, F_SETFL, 0);
+	socket_block(remote_bitbang_fd);
 	char c;
 	ssize_t count = read(remote_bitbang_fd, &c, 1);
 	if (count == 1) {
@@ -179,7 +177,7 @@ static int remote_bitbang_read_sample(void)
 {
 	if (remote_bitbang_start != remote_bitbang_end) {
 		int c = remote_bitbang_buf[remote_bitbang_start];
-		remote_bitbang_start = 
+		remote_bitbang_start =
 			(remote_bitbang_start + 1) % sizeof(remote_bitbang_buf);
 		return char_to_int(c);
 	}
