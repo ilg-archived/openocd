@@ -40,7 +40,8 @@ TARGET_CORE_SRC = \
 	%D%/target.c \
 	%D%/target_request.c \
 	%D%/testee.c \
-	%D%/smp.c
+	%D%/smp.c \
+    %D%/semihosting_common.c
 
 ARMV4_5_SRC = \
 	%D%/armv4_5.c \
@@ -140,7 +141,8 @@ RISCV_SRC = \
 	%D%/riscv/riscv-013.c \
 	%D%/riscv/riscv.c \
 	%D%/riscv/program.c \
-	%D%/riscv/batch.c
+	%D%/riscv/batch.c \
+    %D%/riscv/riscv_semihosting.c
 
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
