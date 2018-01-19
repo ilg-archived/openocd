@@ -256,6 +256,9 @@ static int riscv_init_target(struct command_context *cmd_ctx,
 	select_dbus.num_bits = target->tap->ir_length;
 	select_idcode.num_bits = target->tap->ir_length;
 
+    // [GNU MCU Eclipse]
+    riscv_semihosting_init(target);
+    
 	return ERROR_OK;
 }
 
@@ -1022,6 +1025,15 @@ int riscv_openocd_poll(struct target *target)
 	}
 
 	target->state = TARGET_HALTED;
+    
+    // [GNU MCU Eclipse]
+    if (target->debug_reason == DBG_REASON_BREAKPOINT) {
+        int retval;
+        if (riscv_semihosting(target, &retval) != 0) {
+            return retval;
+        }
+    }
+    
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 	return ERROR_OK;
 }
@@ -1274,6 +1286,38 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
+// [GNU MCU Eclipse]
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline);
+
+static const struct command_registration arm_exec_command_handlers[] = {
+    {
+        "semihosting",
+        .handler = handle_common_arm_semihosting_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting operations",
+    },
+    {
+        "semihosting_cmdline",
+        .handler = handle_common_arm_semihosting_cmdline,
+        .mode = COMMAND_EXEC,
+        .usage = "arguments",
+        .help = "command line arguments to be passed to program",
+    },
+    {
+        "semihosting_fileio",
+        .handler = handle_common_arm_semihosting_fileio_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting fileio operations",
+    },
+    
+    COMMAND_REGISTRATION_DONE
+};
+// ^^^
+
 const struct command_registration riscv_command_handlers[] = {
 	{
 		.name = "riscv",
@@ -1282,6 +1326,14 @@ const struct command_registration riscv_command_handlers[] = {
 		.usage = "",
 		.chain = riscv_exec_command_handlers
 	},
+    // [GNU MCU Eclipse]
+    {
+        .name = "arm",
+        .mode = COMMAND_ANY,
+        .help = "ARM Command Group",
+        .usage = "",
+        .chain = arm_exec_command_handlers
+    },
 	COMMAND_REGISTRATION_DONE
 };
 
