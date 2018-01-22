@@ -229,6 +229,8 @@ int semihosting_common(struct target *target)
                 } else {
                     semihosting->result = close(fd);
                     semihosting->sys_errno = errno;
+                    
+                    LOG_DEBUG("close(%d)=%d", fd, (int)semihosting->result);
                 }
             }
             break;
@@ -306,7 +308,6 @@ int semihosting_common(struct target *target)
              * were on entry to the operation, or as subsequently modified
              * by the debugger.
              */
-            
             if (semihosting->word_size_bytes == 8) {
                 retval = semihosting_read_fields(target, 2, fields);
                 if (retval != ERROR_OK) {
@@ -454,8 +455,10 @@ int semihosting_common(struct target *target)
                 semihosting->result = fstat(fd, &buf);
                 if (semihosting->result == -1) {
                     semihosting->sys_errno = errno;
+                    LOG_DEBUG("fstat(%d)=%d", fd, (int)semihosting->result);
                     break;
                 }
+                LOG_DEBUG("fstat(%d)=%d", fd, (int)semihosting->result);
                 semihosting->result = buf.st_size;
             }
             break;
@@ -514,6 +517,8 @@ int semihosting_common(struct target *target)
                         return retval;
                     }
                 }
+                LOG_DEBUG("SYS_GET_CMDLINE=[%s],%d", arg,
+                          (int)semihosting->result);
             }
             break;
             
@@ -607,6 +612,7 @@ int semihosting_common(struct target *target)
                 }
                 int fd = semihosting_get_field(target, 0, fields);
                 semihosting->result = isatty(fd);
+                LOG_DEBUG("isatty(%d)=%d", fd, (int)semihosting->result);
             }
             break;
 
@@ -704,10 +710,16 @@ int semihosting_common(struct target *target)
                              * - 8-11 ("a") for stderr */
                             if (mode < 4) {
                                 semihosting->result = dup(STDIN_FILENO);
+                                semihosting->sys_errno =  errno;
+                                LOG_DEBUG("dup(STDIN)=%d", (int)semihosting->result);
                             } else if (mode < 8) {
                                 semihosting->result = dup(STDOUT_FILENO);
+                                semihosting->sys_errno =  errno;
+                                LOG_DEBUG("dup(STDOUT)=%d", (int)semihosting->result);
                             } else {
                                 semihosting->result = dup(STDERR_FILENO);
+                                semihosting->sys_errno =  errno;
+                                LOG_DEBUG("dup(STDERR)=%d", (int)semihosting->result);
                             }
                         } else {
                             /* cygwin requires the permission setting
@@ -716,8 +728,10 @@ int semihosting_common(struct target *target)
                             semihosting->result = open((char *)fn,
                                                        open_modeflags[mode],
                                                        0644);
+                            semihosting->sys_errno =  errno;
+                            LOG_DEBUG("open('%s')=%d", fn,
+                                      (int)semihosting->result);
                         }
-                        semihosting->sys_errno =  errno;
                     }
                     free(fn);
                 }
@@ -780,6 +794,8 @@ int semihosting_common(struct target *target)
                     } else {
                         semihosting->result = read(fd, buf, len);
                         semihosting->sys_errno = errno;
+                        LOG_DEBUG("read(%d, 0x%" PRIx64 ", %zu)=%d", fd, addr,
+                                  len, (int)semihosting->result);
                         if (semihosting->result >= 0) {
                             retval = target_write_buffer(target, addr,
                                                          semihosting->result,
@@ -814,6 +830,7 @@ int semihosting_common(struct target *target)
                 return ERROR_FAIL;
             }
             semihosting->result = getchar();
+            LOG_DEBUG("getchar()=%d", (int)semihosting->result);
             break;
 
         case SEMIHOSTING_SYS_REMOVE: /* 0x0E */
@@ -857,7 +874,9 @@ int semihosting_common(struct target *target)
                         fn[len] = 0;
                         semihosting->result = remove((char *)fn);
                         semihosting->sys_errno =  errno;
-                        
+                        LOG_DEBUG("remove('%s')=%d", fn,
+                                  (int)semihosting->result);
+
                         free(fn);
                     }
                 }
@@ -922,7 +941,9 @@ int semihosting_common(struct target *target)
                         fn2[len2] = 0;
                         semihosting->result = rename((char *)fn1, (char *)fn2);
                         semihosting->sys_errno =  errno;
-                        
+                        LOG_DEBUG("rename('%s', '%s')=%d", fn1, fn2,
+                                  (int)semihosting->result);
+
                         free(fn1);
                         free(fn2);
                     }
@@ -967,6 +988,8 @@ int semihosting_common(struct target *target)
                 } else {
                     semihosting->result = lseek(fd, pos, SEEK_SET);
                     semihosting->sys_errno = errno;
+                    LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos,
+                              (int)semihosting->result);
                     if (semihosting->result == pos) {
                         semihosting->result = 0;
                     }
@@ -1021,6 +1044,8 @@ int semihosting_common(struct target *target)
                         } else {
                             cmd[len] = 0;
                             semihosting->result = system((const char *)cmd);
+                            LOG_DEBUG("system('%s')=%d",cmd,
+                                      (int)semihosting->result);
                         }
                         
                         free(cmd);
@@ -1099,6 +1124,8 @@ int semihosting_common(struct target *target)
                         }
                         semihosting->result = write(fd, buf, len);
                         semihosting->sys_errno = errno;
+                        LOG_DEBUG("write(%d, 0x%" PRIx64 ", %zu)=%d", fd, addr,
+                                  len, (int)semihosting->result);
                         if (semihosting->result >= 0) {
                             /* The number of bytes that are NOT written. */
                             semihosting->result = len - semihosting->result;
@@ -1439,7 +1466,7 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_command)
             return ERROR_FAIL;
         }
         
-        /* FIXME never let that "catch" be dropped! */
+        /* FIXME never let that "catch" be dropped! (???) */
         semihosting->is_active = is_active;
     }
     
