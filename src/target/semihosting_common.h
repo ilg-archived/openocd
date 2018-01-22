@@ -103,6 +103,9 @@ struct semihosting {
     /** A flag reporting whether semihosting fileio operation is active. */
     bool hit_fileio;
     
+    /** Most are resumable, except the two exit calls. */
+    bool is_resumable;
+
     /** The Target (hart) word size; 8 for 64-bits targets. */
     size_t word_size_bytes;
     

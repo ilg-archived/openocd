@@ -153,7 +153,7 @@ int riscv_semihosting(struct target *target, int *retval)
      * Resume target if we are not waiting on a fileio
      * operation to complete.
      */
-    if (!semihosting->hit_fileio) {
+    if (semihosting->is_resumable && !semihosting->hit_fileio) {
         /* Resume right after the EBREAK 4 bytes instruction. */
         *retval = target_resume(target, 0, dpc+4, 0, 0);
         if (*retval != ERROR_OK) {

@@ -113,6 +113,7 @@ int semihosting_common_init(struct target *target, void *setup,
     semihosting->is_active = false;
     semihosting->is_fileio = false;
     semihosting->hit_fileio = false;
+    semihosting->is_resumable = false;
     semihosting->word_size_bytes = 0;
     semihosting->op = -1;
     semihosting->param = 0;
@@ -152,6 +153,9 @@ int semihosting_common(struct target *target)
      * The actual result must be set by each function
      */
     semihosting->result = -1;
+    
+    /* Most operations are resumable, except the two exit calls. */
+    semihosting->is_resumable = true;
     
     int retval;
     
@@ -351,8 +355,9 @@ int semihosting_common(struct target *target)
                     }
                 }
             }
-            return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-       
+                semihosting->is_resumable = false;
+                return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+
         case SEMIHOSTING_SYS_EXIT_EXTENDED: /* 0x20 */
             /*
              * This operation is only supported if the semihosting extension
@@ -410,8 +415,8 @@ int semihosting_common(struct target *target)
                             type);
                 }
             }
-            return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-            // break;
+                semihosting->is_resumable = false;
+                return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
         case SEMIHOSTING_SYS_FLEN: /* 0x0C */
             /*
