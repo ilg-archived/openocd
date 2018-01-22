@@ -501,7 +501,7 @@ int semihosting_common(struct target *target)
                 if (len > size) {
                     semihosting->result = -1;
                 } else {
-                    semihosting_set_field(target, 1, len, fields);
+                    semihosting_set_field(target, len, 1, fields);
                     retval = target_write_buffer(target, addr, len,
                                                  (uint8_t *)arg);
                     if (retval != ERROR_OK) {
