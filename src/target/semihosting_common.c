@@ -492,8 +492,8 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr = semihosting_get_field(target, 0, fields);
-                uint32_t size = semihosting_get_field(target, 1, fields);
+                uint64_t addr = semihosting_get_field(target, 0, fields);
+                size_t size = semihosting_get_field(target, 1, fields);
                 
                 char *arg = semihosting->cmdline != NULL ?
                             semihosting->cmdline : "";
@@ -541,7 +541,7 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr = semihosting_get_field(target, 0, fields);
+                uint64_t addr = semihosting_get_field(target, 0, fields);
                 /* tell the remote we have no idea */
                 memset(fields, 0, 4 * semihosting->word_size_bytes);
                 retval = target_write_memory(target, addr, 4,
@@ -664,9 +664,9 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr = semihosting_get_field(target, 0, fields);
+                uint64_t addr = semihosting_get_field(target, 0, fields);
                 uint32_t mode = semihosting_get_field(target, 1, fields);
-                uint32_t len = semihosting_get_field(target, 2, fields);
+                size_t len = semihosting_get_field(target, 2, fields);
                 
                 if (mode > 11) {
                     semihosting->result = -1;
@@ -764,8 +764,8 @@ int semihosting_common(struct target *target)
                 return retval;
             } else {
                 int fd = semihosting_get_field(target, 0, fields);
-                uint32_t addr = semihosting_get_field(target, 1, fields);
-                ssize_t len = semihosting_get_field(target, 2, fields);
+                uint64_t addr = semihosting_get_field(target, 1, fields);
+                size_t len = semihosting_get_field(target, 2, fields);
                 if (semihosting->is_fileio) {
                     semihosting->hit_fileio = true;
                     fileio_info->identifier = "read";
@@ -836,8 +836,8 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr = semihosting_get_field(target, 0, fields);
-                uint32_t len = semihosting_get_field(target, 1, fields);
+                uint64_t addr = semihosting_get_field(target, 0, fields);
+                size_t len = semihosting_get_field(target, 1, fields);
                 if (semihosting->is_fileio) {
                     semihosting->hit_fileio = true;
                     fileio_info->identifier = "unlink";
@@ -886,10 +886,10 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr1 = semihosting_get_field(target, 0, fields);
-                uint32_t len1 = semihosting_get_field(target, 1, fields);
-                uint32_t addr2 = semihosting_get_field(target, 2, fields);
-                uint32_t len2 = semihosting_get_field(target, 3, fields);
+                uint64_t addr1 = semihosting_get_field(target, 0, fields);
+                size_t len1 = semihosting_get_field(target, 1, fields);
+                uint64_t addr2 = semihosting_get_field(target, 2, fields);
+                size_t len2 = semihosting_get_field(target, 3, fields);
                 if (semihosting->is_fileio) {
                     semihosting->hit_fileio = true;
                     fileio_info->identifier = "rename";
@@ -1001,8 +1001,8 @@ int semihosting_common(struct target *target)
             if (retval != ERROR_OK) {
                 return retval;
             } else {
-                uint32_t addr = semihosting_get_field(target, 0, fields);
-                uint32_t len = semihosting_get_field(target, 1, fields);
+                uint64_t addr = semihosting_get_field(target, 0, fields);
+                size_t len = semihosting_get_field(target, 1, fields);
                 if (semihosting->is_fileio) {
                     semihosting->hit_fileio = true;
                     fileio_info->identifier = "system";
@@ -1078,7 +1078,7 @@ int semihosting_common(struct target *target)
                 return retval;
             } else {
                 int fd = semihosting_get_field(target, 0, fields);
-                uint32_t addr = semihosting_get_field(target, 1, fields);
+                uint64_t addr = semihosting_get_field(target, 1, fields);
                 size_t len = semihosting_get_field(target, 2, fields);
                 if (semihosting->is_fileio) {
                     semihosting->hit_fileio = true;
