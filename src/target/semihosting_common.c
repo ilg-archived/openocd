@@ -1530,6 +1530,9 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline)
         free(semihosting->cmdline);
         semihosting->cmdline = cmdline;
     }
+
+    command_print(CMD_CTX, "semihosting command line is [%s]",
+                  semihosting->cmdline);
     
     return ERROR_OK;
 }
