@@ -114,6 +114,7 @@ int semihosting_common_init(struct target *target, void *setup,
     semihosting->is_fileio = false;
     semihosting->hit_fileio = false;
     semihosting->is_resumable = false;
+    semihosting->has_resumable_exit = false;
     semihosting->word_size_bytes = 0;
     semihosting->op = -1;
     semihosting->param = 0;
@@ -355,8 +356,11 @@ int semihosting_common(struct target *target)
                     }
                 }
             }
+            if (!semihosting->has_resumable_exit) {
                 semihosting->is_resumable = false;
                 return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+            }
+            break;
 
         case SEMIHOSTING_SYS_EXIT_EXTENDED: /* 0x20 */
             /*
@@ -415,8 +419,11 @@ int semihosting_common(struct target *target)
                             type);
                 }
             }
+            if (!semihosting->has_resumable_exit) {
                 semihosting->is_resumable = false;
                 return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+            }
+            break;
 
         case SEMIHOSTING_SYS_FLEN: /* 0x0C */
             /*
@@ -1505,3 +1512,27 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline)
     return ERROR_OK;
 }
 
+__COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command)
+{
+    struct target *target = get_current_target(CMD_CTX);
+    
+    if (target == NULL) {
+        LOG_ERROR("No target selected");
+        return ERROR_FAIL;
+    }
+    
+    struct semihosting *semihosting = target->semihosting;
+    if (!semihosting) {
+        command_print(CMD_CTX, "semihosting not supported for current target");
+        return ERROR_FAIL;
+    }
+    
+    if (CMD_ARGC > 0)
+        COMMAND_PARSE_ENABLE(CMD_ARGV[0], semihosting->has_resumable_exit);
+    
+    command_print(CMD_CTX, "semihosting resumable exit is %s",
+                  semihosting->has_resumable_exit
+                  ? "enabled" : "disabled");
+    
+    return ERROR_OK;
+}

@@ -1289,6 +1289,7 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 // [GNU MCU Eclipse]
 extern __COMMAND_HANDLER(handle_common_arm_semihosting_command);
 extern __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command);
 extern __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline);
 
 static const struct command_registration arm_exec_command_handlers[] = {
@@ -1313,7 +1314,14 @@ static const struct command_registration arm_exec_command_handlers[] = {
         .usage = "['enable'|'disable']",
         .help = "activate support for semihosting fileio operations",
     },
-    
+    {
+        "semihosting_resumable_exit",
+        .handler = handle_common_arm_semihosting_resumable_exit_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting resumable exit",
+    },
+
     COMMAND_REGISTRATION_DONE
 };
 // ^^^

@@ -106,6 +106,16 @@ struct semihosting {
     /** Most are resumable, except the two exit calls. */
     bool is_resumable;
 
+    /**
+     * When exit is called during a debug session, execution anyway
+     * returns to the debugger, execution halting to the BRK.
+     * The standard allows for exit to return, but the condition
+     * to trigger this is a bit obscure ("by performing an RDI_Execute
+     * request or equivalent").
+     * To make the exit call return, enable this.
+     */
+    bool has_resumable_exit;
+
     /** The Target (hart) word size; 8 for 64-bits targets. */
     size_t word_size_bytes;
     
