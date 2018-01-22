@@ -1493,13 +1493,8 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command)
         return ERROR_FAIL;
     }
 
-    if (!semihosting->is_active) {
-        command_print(CMD_CTX, "semihosting is not enabled");
-        return ERROR_FAIL;
-    }
-    
     if (CMD_ARGC > 0)
-        COMMAND_PARSE_ENABLE(CMD_ARGV[0],semihosting->is_fileio);
+        COMMAND_PARSE_ENABLE(CMD_ARGV[0], semihosting->is_fileio);
     
     command_print(CMD_CTX, "semihosting fileio is %s",
                   semihosting->is_fileio
