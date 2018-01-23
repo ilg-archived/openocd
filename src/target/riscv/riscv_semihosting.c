@@ -106,19 +106,6 @@ int riscv_semihosting(struct target *target, int *retval)
     if (pre != 0x01f01013 || ebreak != 0x00100073 || post != 0x40705013) {
         
         /* Not the magic sequence defining semihosting. */
-        
-// Disabled, wrong place.
-#if 0
-        /* Adjust return address for regular EBREAKs. */
-        if (ebreak == 0x00100073) {
-            ; // riscv_set_register(target, GDB_REGNO_PC, dpc + 4);
-        } else {
-            uint16_t c_ebreak = target_buffer_get_u16(target, tmp + 4);
-            if (c_ebreak == 0x9002) {
-                riscv_set_register(target, GDB_REGNO_PC, dpc + 2);
-            }
-        }
-#endif
         return 0;
     }
     
