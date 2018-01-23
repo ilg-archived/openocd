@@ -1245,7 +1245,7 @@ static const struct command_registration arm_exec_command_handlers[] = {
         .help = "activate support for semihosting fileio operations",
     },
     {
-        "semihosting_resumable_exit",
+        "semihosting_resexit",
         .handler = handle_common_arm_semihosting_resumable_exit_command,
         .mode = COMMAND_EXEC,
         .usage = "['enable'|'disable']",
