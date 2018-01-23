@@ -666,6 +666,9 @@ int arm_arch_state(struct target *target)
 		return ERROR_FAIL;
 	}
 
+// [GNU MCU Eclipse]
+#if defined(USE_ORIGINAL_SEMIHOSTING)
+
 	/* avoid filling log waiting for fileio reply */
 	if (arm->semihosting_hit_fileio)
 		return ERROR_OK;
@@ -679,7 +682,25 @@ int arm_arch_state(struct target *target)
 		buf_get_u32(arm->pc->value, 0, 32),
 		arm->is_semihosting ? ", semihosting" : "",
 		arm->is_semihosting_fileio ? " fileio" : "");
+    
+#else
+ 
+    /* avoid filling log waiting for fileio reply */
+    if (target->semihosting->hit_fileio)
+        return ERROR_OK;
+    
+    LOG_USER("target halted in %s state due to %s, current mode: %s\n"
+             "cpsr: 0x%8.8" PRIx32 " pc: 0x%8.8" PRIx32 "%s%s",
+             arm_state_strings[arm->core_state],
+             debug_reason_name(target),
+             arm_mode_name(arm->core_mode),
+             buf_get_u32(arm->cpsr->value, 0, 32),
+             buf_get_u32(arm->pc->value, 0, 32),
+             target->semihosting->is_active ? ", semihosting" : "",
+             target->semihosting->is_fileio ? " fileio" : "");
 
+#endif
+    
 	return ERROR_OK;
 }
 
@@ -1013,6 +1034,9 @@ static int jim_mcrmrc(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	return JIM_OK;
 }
 
+// [GNU MCU Eclipse]
+#if defined(USE_ORIGINAL_SEMIHOSTING)
+
 COMMAND_HANDLER(handle_arm_semihosting_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -1127,6 +1151,16 @@ COMMAND_HANDLER(handle_arm_semihosting_cmdline)
 	return ERROR_OK;
 }
 
+#else
+
+// [GNU MCU Eclipse]
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command);
+extern __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline);
+
+#endif /* defined(USE_ORIGINAL_SEMIHOSTING) */
+
 static const struct command_registration arm_exec_command_handlers[] = {
 	{
 		.name = "reg",
@@ -1162,6 +1196,9 @@ static const struct command_registration arm_exec_command_handlers[] = {
 		.help = "read coprocessor register",
 		.usage = "cpnum op1 CRn CRm op2",
 	},
+// [GNU MCU Eclipse]
+#if defined(USE_ORIGINAL_SEMIHOSTING)
+
 	{
 		"semihosting",
 		.handler = handle_arm_semihosting_command,
@@ -1184,6 +1221,39 @@ static const struct command_registration arm_exec_command_handlers[] = {
 		.help = "activate support for semihosting fileio operations",
 	},
 
+#else
+  
+    {
+        "semihosting",
+        .handler = handle_common_arm_semihosting_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting operations",
+    },
+    {
+        "semihosting_cmdline",
+        .handler = handle_common_arm_semihosting_cmdline,
+        .mode = COMMAND_EXEC,
+        .usage = "arguments",
+        .help = "command line arguments to be passed to program",
+    },
+    {
+        "semihosting_fileio",
+        .handler = handle_common_arm_semihosting_fileio_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting fileio operations",
+    },
+    {
+        "semihosting_resumable_exit",
+        .handler = handle_common_arm_semihosting_resumable_exit_command,
+        .mode = COMMAND_EXEC,
+        .usage = "['enable'|'disable']",
+        .help = "activate support for semihosting resumable exit",
+    },
+
+#endif /* defined(USE_ORIGINAL_SEMIHOSTING) */
+    
 	COMMAND_REGISTRATION_DONE
 };
 const struct command_registration arm_command_handlers[] = {
