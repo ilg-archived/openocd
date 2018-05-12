@@ -195,13 +195,9 @@ static int remote_bitbang_blink(int on)
 }
 
 static struct bitbang_interface remote_bitbang_bitbang = {
-#if BUILD_RISCV == 1
 	.buf_size = sizeof(remote_bitbang_buf) - 1,
 	.sample = &remote_bitbang_sample,
 	.read_sample = &remote_bitbang_read_sample,
-#else
-	.read = &remote_bitbang_read,
-#endif
 	.write = &remote_bitbang_write,
 	.reset = &remote_bitbang_reset,
 	.blink = &remote_bitbang_blink,
@@ -211,11 +207,7 @@ static int remote_bitbang_init_tcp(void)
 {
 	struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM };
 	struct addrinfo *result, *rp;
-#if BUILD_RISCV == 1
 	int fd = 0;
-#else
-	int fd;
-#endif
 
 	LOG_INFO("Connecting to %s:%s",
 			remote_bitbang_host ? remote_bitbang_host : "localhost",

@@ -56,8 +56,8 @@ struct rtos {
 	int (*gdb_thread_packet)(struct connection *connection, char const *packet, int packet_size);
 #if BUILD_RISCV == 1
 	int (*gdb_v_packet)(struct connection *connection, char const *packet, int packet_size);
-	int (*gdb_target_for_threadid)(struct connection *connection, int64_t thread_id, struct target **p_target);
 #endif
+	int (*gdb_target_for_threadid)(struct connection *connection, int64_t thread_id, struct target **p_target);
 	void *rtos_specific_params;
 };
 

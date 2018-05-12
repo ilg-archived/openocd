@@ -207,11 +207,7 @@ static int bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 		unsigned scan_size)
 {
 	tap_state_t saved_end_state = tap_get_end_state();
-#if BUILD_RISCV == 1
 	unsigned bit_cnt;
-#else
-	int bit_cnt;
-#endif
 
 	if (!((!ir_scan &&
 			(tap_get_state() == TAP_DRSHIFT)) ||
@@ -226,13 +222,8 @@ static int bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 		bitbang_end_state(saved_end_state);
 	}
 
-#if BUILD_RISCV == 1
 	size_t buffered = 0;
-#endif
 	for (bit_cnt = 0; bit_cnt < scan_size; bit_cnt++) {
-#if BUILD_RISCV != 1
-		int val = 0;
-#endif
 		int tms = (bit_cnt == scan_size-1) ? 1 : 0;
 		int tdi;
 		int bytec = bit_cnt/8;
@@ -249,7 +240,6 @@ static int bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 		if (bitbang_interface->write(0, tms, tdi) != ERROR_OK)
 			return ERROR_FAIL;
 
-#if BUILD_RISCV == 1
 		if (type != SCAN_OUT) {
 			if (bitbang_interface->buf_size) {
 				if (bitbang_interface->sample() != ERROR_OK)
@@ -268,15 +258,10 @@ static int bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 				}
 			}
 		}
-#else
-		if (type != SCAN_OUT)
-			val = bitbang_interface->read();
-#endif
 
 		if (bitbang_interface->write(1, tms, tdi) != ERROR_OK)
 			return ERROR_FAIL;
 
-#if BUILD_RISCV == 1
 		if (type != SCAN_OUT && bitbang_interface->buf_size &&
 				(buffered == bitbang_interface->buf_size ||
 				 bit_cnt == scan_size - 1)) {
@@ -294,14 +279,6 @@ static int bitbang_scan(bool ir_scan, enum scan_type type, uint8_t *buffer,
 			}
 			buffered = 0;
 		}
-#else
-		if (type != SCAN_OUT) {
-			if (val)
-				buffer[bytec] |= bcval;
-			else
-				buffer[bytec] &= ~bcval;
-		}
-#endif
 	}
 
 	if (tap_get_state() != tap_get_end_state()) {
@@ -391,7 +368,6 @@ int bitbang_execute_queue(void)
 					return ERROR_FAIL;
 				break;
 			case JTAG_SCAN:
-#if BUILD_RISCV == 1
 				bitbang_end_state(cmd->cmd.scan->end_state);
 				scan_size = jtag_build_buffer(cmd->cmd.scan, &buffer);
 #ifdef _DEBUG_JTAG_IO_
@@ -399,15 +375,6 @@ int bitbang_execute_queue(void)
 						(cmd->cmd.scan->ir_scan) ? "IR" : "DR",
 						scan_size,
 					tap_state_name(cmd->cmd.scan->end_state));
-#endif
-#else
-#ifdef _DEBUG_JTAG_IO_
-				LOG_DEBUG("%s scan end in %s",
-						(cmd->cmd.scan->ir_scan) ? "IR" : "DR",
-						tap_state_name(cmd->cmd.scan->end_state));
-#endif
-				bitbang_end_state(cmd->cmd.scan->end_state);
-				scan_size = jtag_build_buffer(cmd->cmd.scan, &buffer);
 #endif
 				type = jtag_scan_type(cmd->cmd.scan);
 				if (bitbang_scan(cmd->cmd.scan->ir_scan, type, buffer,

@@ -1291,11 +1291,7 @@ COMMAND_HANDLER(stm32x_handle_unlock_command)
 	 * this will also force a device unlock if set */
 	stm32x_info->option_bytes.RDP = 0xAA;
 	if (stm32x_info->has_optcr2_pcrop) {
-#if BUILD_RISCV == 1
 		stm32x_info->option_bytes.optcr2_pcrop = OPTCR2_PCROP_RDP | (~1U << bank->num_sectors);
-#else
-		stm32x_info->option_bytes.optcr2_pcrop = OPTCR2_PCROP_RDP | (~1 << bank->num_sectors);
-#endif
 	}
 
 	if (stm32x_write_options(bank) != ERROR_OK) {

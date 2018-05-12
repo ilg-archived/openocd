@@ -2540,11 +2540,7 @@ static int gdb_query_packet(struct connection *connection,
 			char gdb_reply[10];
 			char *separator;
 			uint32_t checksum;
-#if BUILD_RISCV == 1
 			target_addr_t addr = 0;
-#else
-			uint32_t addr = 0;
-#endif
 			uint32_t len = 0;
 
 			/* skip command character */
@@ -3431,7 +3427,6 @@ static int gdb_target_add_one(struct target *target)
 		if (!*end) {
 			if (parse_long(gdb_port_next, &portnumber) == ERROR_OK) {
 				free(gdb_port_next);
-#if BUILD_RISCV == 1
 				if (portnumber) {
 					gdb_port_next = alloc_printf("%d", portnumber+1);
 				} else {
@@ -3439,9 +3434,6 @@ static int gdb_target_add_one(struct target *target)
 					 * trying to allocate an unused port. */
 					gdb_port_next = strdup("0");
 				}
-#else
-				gdb_port_next = alloc_printf("%d", portnumber+1);
-#endif
 			}
 		}
 	}

@@ -183,9 +183,6 @@ struct arm {
 	/** Flag reporting armv6m based core. */
 	bool is_armv6m;
 
-	/** Floating point or VFP version, 0 if disabled. */
-	int arm_vfp_version;
-
 // [GNU MCU Eclipse]
 #if defined(USE_ORIGINAL_SEMIHOSTING)
 	/** Flag reporting whether semihosting is active. */
@@ -197,6 +194,9 @@ struct arm {
 	/** Flag reporting whether semihosting fileio operation is active. */
 	bool semihosting_hit_fileio;
 
+	/** Floating point or VFP version, 0 if disabled. */
+	int arm_vfp_version;
+
 	/** Current semihosting operation. */
 	int semihosting_op;
 
@@ -206,11 +206,16 @@ struct arm {
 	/** Value to be returned by semihosting SYS_ERRNO request. */
 	int semihosting_errno;
 
-    /** Semihosting command line. */
-    char *semihosting_cmdline;
-#endif /* USE_ORIGINAL_SEMIHOSTING */
+	int (*setup_semihosting)(struct target *target, int enable);
+
+	/** Semihosting command line. */
+	char *semihosting_cmdline;
+#else
+	/** Floating point or VFP version, 0 if disabled. */
+	int arm_vfp_version;
 
 	int (*setup_semihosting)(struct target *target, int enable);
+#endif /* USE_ORIGINAL_SEMIHOSTING */
 
 	/** Backpointer to the target. */
 	struct target *target;
