@@ -51,7 +51,7 @@ static struct rtos_type *rtos_types[] = {
 #if BUILD_RISCV == 1
 	&riscv_rtos,
 #endif
-    NULL
+	NULL
 };
 
 int rtos_thread_packet(struct connection *connection, const char *packet, int packet_size);

@@ -112,6 +112,10 @@ static char *gdb_port_next;
 static void gdb_log_callback(void *priv, const char *file, unsigned line,
 		const char *function, const char *string);
 
+#if BUILD_RISCV != 1
+static void gdb_sig_halted(struct connection *connection);
+#endif
+
 /* number of gdb connections, mainly to suppress gdb related debugging spam
  * in helper/log.c when no gdb connections are actually active */
 int gdb_actual_connections;
@@ -2867,15 +2871,20 @@ static int gdb_v_packet(struct connection *connection,
 		char const *packet, int packet_size)
 {
 	struct gdb_connection *gdb_connection = connection->priv;
+#if BUILD_RISCV == 1
 	int result;
 
 	struct target *target = get_target_from_connection(connection);
-#if BUILD_RISCV == 1
 	if (target->rtos != NULL && target->rtos->gdb_v_packet != NULL) {
 		int out = target->rtos->gdb_v_packet(connection, packet, packet_size);
 		if (out != GDB_THREAD_PACKET_NOT_CONSUMED)
 			return out;
 	}
+#else
+	struct target *target;
+	int result;
+
+	target = get_target_from_connection(connection);
 #endif
 
 	if (strncmp(packet, "vCont", 5) == 0) {
