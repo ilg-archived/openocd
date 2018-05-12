@@ -183,6 +183,9 @@ struct arm {
 	/** Flag reporting armv6m based core. */
 	bool is_armv6m;
 
+	/** Floating point or VFP version, 0 if disabled. */
+	int arm_vfp_version;
+
 // [GNU MCU Eclipse]
 #if defined(USE_ORIGINAL_SEMIHOSTING)
 	/** Flag reporting whether semihosting is active. */
@@ -193,9 +196,6 @@ struct arm {
 
 	/** Flag reporting whether semihosting fileio operation is active. */
 	bool semihosting_hit_fileio;
-
-	/** Floating point or VFP version, 0 if disabled. */
-	int arm_vfp_version;
 
 	/** Current semihosting operation. */
 	int semihosting_op;
