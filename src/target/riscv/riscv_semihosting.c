@@ -80,7 +80,10 @@ int riscv_semihosting(struct target *target, int *retval)
         return 0;
     }
     
-    riscv_reg_t dpc = riscv_get_register(target, GDB_REGNO_DPC);
+    riscv_reg_t dpc;
+    int result = riscv_get_register(target, &dpc, GDB_REGNO_DPC);
+	if (result != ERROR_OK)
+		return 0;
     
     uint8_t tmp[12];
     
@@ -116,9 +119,17 @@ int riscv_semihosting(struct target *target, int *retval)
     if (!semihosting->hit_fileio) {
 
         /* RISC-V uses A0 and A1 to pass function arguments */
-        riscv_reg_t r0 = riscv_get_register(target, GDB_REGNO_A0);
-        riscv_reg_t r1 = riscv_get_register(target, GDB_REGNO_A1);
+        riscv_reg_t r0;
+        riscv_reg_t r1;
   
+        result = riscv_get_register(target, &r0, GDB_REGNO_A0);
+        if (result != ERROR_OK)
+            return 0;
+
+        result = riscv_get_register(target, &r1, GDB_REGNO_A1);
+        if (result != ERROR_OK)
+            return 0;
+
         semihosting->op = r0;
         semihosting->param = r1;
         semihosting->word_size_bytes = riscv_xlen(target) / 8;
