@@ -3699,10 +3699,10 @@ void gdb_set_frontend_state_running(struct connection *connection)
 	struct gdb_connection *gdb_con = connection->priv;
 	gdb_con->frontend_state = TARGET_RUNNING;
 }
+#endif
 
 void gdb_service_free(void)
 {
 	free(gdb_port);
 	free(gdb_port_next);
 }
-#endif
