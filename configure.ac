@@ -114,6 +114,7 @@ m4_define([USB1_ADAPTERS],
 	[[ti_icdi], [TI ICDI JTAG Programmer], [HLADAPTER_ICDI]],
 	[[ulink], [Keil ULINK JTAG Programmer], [ULINK]],
 	[[usb_blaster_2], [Altera USB-Blaster II Compatible], [USB_BLASTER_2]],
+	[[ft232r], [Bitbang mode of FT232R based devices], [FT232R]],
 	[[vsllink], [Versaloon-Link JTAG Programmer], [VSLLINK]]])
 
 m4_define([USB_ADAPTERS],
@@ -652,6 +653,9 @@ PKG_CHECK_MODULES([LIBJAYLINK], [libjaylink >= 0.2],
 
 m4_define([PROCESS_ADAPTERS], [
   m4_foreach([adapter], [$1], [
+	AS_IF([test "x$build_zy1000" = "xyes"], [
+		ADAPTER_VAR([adapter])=no
+	])
 	AS_IF([test $2], [
 		AS_IF([test "x$ADAPTER_VAR([adapter])" != "xno"], [
 			AC_DEFINE([BUILD_]ADAPTER_SYM([adapter]), [1], [1 if you want the ]ADAPTER_DESC([adapter]).)

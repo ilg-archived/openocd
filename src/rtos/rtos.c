@@ -63,6 +63,17 @@ int rtos_smp_init(struct target *target)
 	return ERROR_TARGET_INIT_FAILED;
 }
 
+#if BUILD_RISCV == 1
+static int rtos_target_for_threadid(struct connection *connection, int64_t threadid, struct target **t)
+{
+	struct target *curr = get_target_from_connection(connection);
+	if (t)
+		*t = curr;
+
+	return ERROR_OK;
+}
+#endif
+
 static int os_alloc(struct target *target, struct rtos_type *ostype)
 {
 	struct rtos *os = target->rtos = calloc(1, sizeof(struct rtos));
@@ -80,6 +91,7 @@ static int os_alloc(struct target *target, struct rtos_type *ostype)
 	os->gdb_thread_packet = rtos_thread_packet;
 #if BUILD_RISCV == 1
 	os->gdb_v_packet = NULL;
+	os->gdb_target_for_threadid = rtos_target_for_threadid;
 #endif
 
 	return JIM_OK;
@@ -345,8 +357,15 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 		return ERROR_OK;
 	} else if (strncmp(packet, "qSymbol", 7) == 0) {
 		if (rtos_qsymbol(connection, packet, packet_size) == 1) {
-			target->rtos_auto_detect = false;
-			target->rtos->type->create(target);
+#if BUILD_RISCV == 1
+			if (target->rtos_auto_detect == true) {
+				target->rtos_auto_detect = false;
+				target->rtos->type->create(target);
+			}
+#else
+            target->rtos_auto_detect = false;
+            target->rtos->type->create(target);
+#endif
 			target->rtos->type->update_threads(target->rtos);
 		}
 		return ERROR_OK;

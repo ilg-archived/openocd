@@ -76,6 +76,7 @@
 #include <helper/jep106.h>
 #include <helper/time_support.h>
 #include <helper/list.h>
+#include <helper/jim-nvp.h>
 
 /* ARM ADI Specification requires at least 10 bits used for TAR autoincrement  */
 
@@ -96,8 +97,7 @@ static uint32_t max_tar_block_size(uint32_t tar_autoincr_block, uint32_t address
 
 static int mem_ap_setup_csw(struct adiv5_ap *ap, uint32_t csw)
 {
-	csw = csw | CSW_DBGSWENABLE | CSW_MASTER_DEBUG | CSW_HPROT |
-		ap->csw_default;
+	csw |= ap->csw_default;
 
 	if (csw != ap->csw_value) {
 		/* LOG_DEBUG("DAP: Set CSW %x",csw); */
@@ -111,15 +111,66 @@ static int mem_ap_setup_csw(struct adiv5_ap *ap, uint32_t csw)
 
 static int mem_ap_setup_tar(struct adiv5_ap *ap, uint32_t tar)
 {
-	if (tar != ap->tar_value ||
-			(ap->csw_value & CSW_ADDRINC_MASK)) {
+	if (!ap->tar_valid || tar != ap->tar_value) {
 		/* LOG_DEBUG("DAP: Set TAR %x",tar); */
 		int retval = dap_queue_ap_write(ap, MEM_AP_REG_TAR, tar);
 		if (retval != ERROR_OK)
 			return retval;
 		ap->tar_value = tar;
+		ap->tar_valid = true;
 	}
 	return ERROR_OK;
+}
+
+static int mem_ap_read_tar(struct adiv5_ap *ap, uint32_t *tar)
+{
+	int retval = dap_queue_ap_read(ap, MEM_AP_REG_TAR, tar);
+	if (retval != ERROR_OK) {
+		ap->tar_valid = false;
+		return retval;
+	}
+
+	retval = dap_run(ap->dap);
+	if (retval != ERROR_OK) {
+		ap->tar_valid = false;
+		return retval;
+	}
+
+	ap->tar_value = *tar;
+	ap->tar_valid = true;
+	return ERROR_OK;
+}
+
+static uint32_t mem_ap_get_tar_increment(struct adiv5_ap *ap)
+{
+	switch (ap->csw_value & CSW_ADDRINC_MASK) {
+	case CSW_ADDRINC_SINGLE:
+		switch (ap->csw_value & CSW_SIZE_MASK) {
+		case CSW_8BIT:
+			return 1;
+		case CSW_16BIT:
+			return 2;
+		case CSW_32BIT:
+			return 4;
+		}
+	case CSW_ADDRINC_PACKED:
+		return 4;
+	}
+	return 0;
+}
+
+/* mem_ap_update_tar_cache is called after an access to MEM_AP_REG_DRW
+ */
+static void mem_ap_update_tar_cache(struct adiv5_ap *ap)
+{
+	if (!ap->tar_valid)
+		return;
+
+	uint32_t inc = mem_ap_get_tar_increment(ap);
+	if (inc >= max_tar_block_size(ap->tar_autoincr_block, ap->tar_value))
+		ap->tar_valid = false;
+	else
+		ap->tar_value += inc;
 }
 
 /**
@@ -170,7 +221,8 @@ int mem_ap_read_u32(struct adiv5_ap *ap, uint32_t address,
 	/* Use banked addressing (REG_BDx) to avoid some link traffic
 	 * (updating TAR) when reading several consecutive addresses.
 	 */
-	retval = mem_ap_setup_transfer(ap, CSW_32BIT | CSW_ADDRINC_OFF,
+	retval = mem_ap_setup_transfer(ap,
+			CSW_32BIT | (ap->csw_value & CSW_ADDRINC_MASK),
 			address & 0xFFFFFFF0);
 	if (retval != ERROR_OK)
 		return retval;
@@ -221,7 +273,8 @@ int mem_ap_write_u32(struct adiv5_ap *ap, uint32_t address,
 	/* Use banked addressing (REG_BDx) to avoid some link traffic
 	 * (updating TAR) when writing several consecutive addresses.
 	 */
-	retval = mem_ap_setup_transfer(ap, CSW_32BIT | CSW_ADDRINC_OFF,
+	retval = mem_ap_setup_transfer(ap,
+			CSW_32BIT | (ap->csw_value & CSW_ADDRINC_MASK),
 			address & 0xFFFFFFF0);
 	if (retval != ERROR_OK)
 		return retval;
@@ -272,7 +325,7 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 	const uint32_t csw_addrincr = addrinc ? CSW_ADDRINC_SINGLE : CSW_ADDRINC_OFF;
 	uint32_t csw_size;
 	uint32_t addr_xor;
-	int retval;
+	int retval = ERROR_OK;
 
 	/* TI BE-32 Quirks mode:
 	 * Writes on big-endian TMS570 behave very strangely. Observed behavior:
@@ -303,10 +356,6 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 	if (ap->unaligned_access_bad && (address % size != 0))
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 
-	retval = mem_ap_setup_tar(ap, address ^ addr_xor);
-	if (retval != ERROR_OK)
-		return retval;
-
 	while (nbytes > 0) {
 		uint32_t this_size = size;
 
@@ -322,36 +371,41 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 		if (retval != ERROR_OK)
 			break;
 
+		retval = mem_ap_setup_tar(ap, address ^ addr_xor);
+		if (retval != ERROR_OK)
+			return retval;
+
 		/* How many source bytes each transfer will consume, and their location in the DRW,
 		 * depends on the type of transfer and alignment. See ARM document IHI0031C. */
 		uint32_t outvalue = 0;
+		uint32_t drw_byte_idx = address;
 		if (dap->ti_be_32_quirks) {
 			switch (this_size) {
 			case 4:
-				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (address++ & 3) ^ addr_xor);
-				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (address++ & 3) ^ addr_xor);
-				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (address++ & 3) ^ addr_xor);
-				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (address++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (drw_byte_idx++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (drw_byte_idx++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (drw_byte_idx++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (3 ^ (drw_byte_idx & 3) ^ addr_xor);
 				break;
 			case 2:
-				outvalue |= (uint32_t)*buffer++ << 8 * (1 ^ (address++ & 3) ^ addr_xor);
-				outvalue |= (uint32_t)*buffer++ << 8 * (1 ^ (address++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (1 ^ (drw_byte_idx++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (1 ^ (drw_byte_idx & 3) ^ addr_xor);
 				break;
 			case 1:
-				outvalue |= (uint32_t)*buffer++ << 8 * (0 ^ (address++ & 3) ^ addr_xor);
+				outvalue |= (uint32_t)*buffer++ << 8 * (0 ^ (drw_byte_idx & 3) ^ addr_xor);
 				break;
 			}
 		} else {
 			switch (this_size) {
 			case 4:
-				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
-				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
+				outvalue |= (uint32_t)*buffer++ << 8 * (drw_byte_idx++ & 3);
+				outvalue |= (uint32_t)*buffer++ << 8 * (drw_byte_idx++ & 3);
 				/* fallthrough */
 			case 2:
-				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
+				outvalue |= (uint32_t)*buffer++ << 8 * (drw_byte_idx++ & 3);
 				/* fallthrough */
 			case 1:
-				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
+				outvalue |= (uint32_t)*buffer++ << 8 * (drw_byte_idx & 3);
 			}
 		}
 
@@ -361,12 +415,9 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 		if (retval != ERROR_OK)
 			break;
 
-		/* Rewrite TAR if it wrapped or we're xoring addresses */
-		if (addrinc && (addr_xor || (address % ap->tar_autoincr_block < size && nbytes > 0))) {
-			retval = mem_ap_setup_tar(ap, address ^ addr_xor);
-			if (retval != ERROR_OK)
-				break;
-		}
+		mem_ap_update_tar_cache(ap);
+		if (addrinc)
+			address += this_size;
 	}
 
 	/* REVISIT: Might want to have a queued version of this function that does not run. */
@@ -375,8 +426,7 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 
 	if (retval != ERROR_OK) {
 		uint32_t tar;
-		if (dap_queue_ap_read(ap, MEM_AP_REG_TAR, &tar) == ERROR_OK
-				&& dap_run(dap) == ERROR_OK)
+		if (mem_ap_read_tar(ap, &tar) == ERROR_OK)
 			LOG_ERROR("Failed to write memory at 0x%08"PRIx32, tar);
 		else
 			LOG_ERROR("Failed to write memory and, additionally, failed to find out where");
@@ -405,7 +455,7 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 	const uint32_t csw_addrincr = addrinc ? CSW_ADDRINC_SINGLE : CSW_ADDRINC_OFF;
 	uint32_t csw_size;
 	uint32_t address = adr;
-	int retval;
+	int retval = ERROR_OK;
 
 	/* TI BE-32 Quirks mode:
 	 * Reads on big-endian TMS570 behave strangely differently than writes.
@@ -429,17 +479,12 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 	/* Allocate buffer to hold the sequence of DRW reads that will be made. This is a significant
 	 * over-allocation if packed transfers are going to be used, but determining the real need at
 	 * this point would be messy. */
-	uint32_t *read_buf = malloc(count * sizeof(uint32_t));
+	uint32_t *read_buf = calloc(count, sizeof(uint32_t));
+	/* Multiplication count * sizeof(uint32_t) may overflow, calloc() is safe */
 	uint32_t *read_ptr = read_buf;
 	if (read_buf == NULL) {
 		LOG_ERROR("Failed to allocate read buffer");
 		return ERROR_FAIL;
-	}
-
-	retval = mem_ap_setup_tar(ap, address);
-	if (retval != ERROR_OK) {
-		free(read_buf);
-		return retval;
 	}
 
 	/* Queue up all reads. Each read will store the entire DRW word in the read buffer. How many
@@ -459,19 +504,19 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 		if (retval != ERROR_OK)
 			break;
 
+		retval = mem_ap_setup_tar(ap, address);
+		if (retval != ERROR_OK)
+			break;
+
 		retval = dap_queue_ap_read(ap, MEM_AP_REG_DRW, read_ptr++);
 		if (retval != ERROR_OK)
 			break;
 
 		nbytes -= this_size;
-		address += this_size;
+		if (addrinc)
+			address += this_size;
 
-		/* Rewrite TAR if it wrapped */
-		if (addrinc && address % ap->tar_autoincr_block < size && nbytes > 0) {
-			retval = mem_ap_setup_tar(ap, address);
-			if (retval != ERROR_OK)
-				break;
-		}
+		mem_ap_update_tar_cache(ap);
 	}
 
 	if (retval == ERROR_OK)
@@ -486,8 +531,8 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 	 * at least give the caller what we have. */
 	if (retval != ERROR_OK) {
 		uint32_t tar;
-		if (dap_queue_ap_read(ap, MEM_AP_REG_TAR, &tar) == ERROR_OK
-				&& dap_run(dap) == ERROR_OK) {
+		if (mem_ap_read_tar(ap, &tar) == ERROR_OK) {
+			/* TAR is incremented after failed transfer on some devices (eg Cortex-M4) */
 			LOG_ERROR("Failed to read memory at 0x%08"PRIx32, tar);
 			if (nbytes > tar - address)
 				nbytes = tar - address;
@@ -569,31 +614,22 @@ int mem_ap_write_buf_noincr(struct adiv5_ap *ap,
 
 #define DAP_POWER_DOMAIN_TIMEOUT (10)
 
-/* FIXME don't import ... just initialize as
- * part of DAP transport setup
-*/
-extern const struct dap_ops jtag_dp_ops;
-
 /*--------------------------------------------------------------------------*/
 
 /**
- * Create a new DAP
+ * Invalidate cached DP select and cached TAR and CSW of all APs
  */
-struct adiv5_dap *dap_init(void)
+void dap_invalidate_cache(struct adiv5_dap *dap)
 {
-	struct adiv5_dap *dap = calloc(1, sizeof(struct adiv5_dap));
+	dap->select = DP_SELECT_INVALID;
+	dap->last_read = NULL;
+
 	int i;
-	/* Set up with safe defaults */
 	for (i = 0; i <= 255; i++) {
-		dap->ap[i].dap = dap;
-		dap->ap[i].ap_num = i;
-		/* memaccess_tck max is 255 */
-		dap->ap[i].memaccess_tck = 255;
-		/* Number of bits for tar autoincrement, impl. dep. at least 10 */
-		dap->ap[i].tar_autoincr_block = (1<<10);
+		/* force csw and tar write on the next mem-ap access */
+		dap->ap[i].tar_valid = false;
+		dap->ap[i].csw_value = 0;
 	}
-	INIT_LIST_HEAD(&dap->cmd_journal);
-	return dap;
 }
 
 /**
@@ -606,17 +642,9 @@ int dap_dp_init(struct adiv5_dap *dap)
 {
 	int retval;
 
-	LOG_DEBUG(" ");
-	/* JTAG-DP or SWJ-DP, in JTAG mode
-	 * ... for SWD mode this is patched as part
-	 * of link switchover
-	 * FIXME: This should already be setup by the respective transport specific DAP creation.
-	 */
-	if (!dap->ops)
-		dap->ops = &jtag_dp_ops;
+	LOG_DEBUG("%s", adiv5_dap_name(dap));
 
-	dap->select = DP_SELECT_INVALID;
-	dap->last_read = NULL;
+	dap_invalidate_cache(dap);
 
 	for (size_t i = 0; i < 30; i++) {
 		/* DP initialization */
@@ -647,12 +675,14 @@ int dap_dp_init(struct adiv5_dap *dap)
 	if (retval != ERROR_OK)
 		return retval;
 
-	LOG_DEBUG("DAP: wait CSYSPWRUPACK");
-	retval = dap_dp_poll_register(dap, DP_CTRL_STAT,
-				      CSYSPWRUPACK, CSYSPWRUPACK,
-				      DAP_POWER_DOMAIN_TIMEOUT);
-	if (retval != ERROR_OK)
-		return retval;
+	if (!dap->ignore_syspwrupack) {
+		LOG_DEBUG("DAP: wait CSYSPWRUPACK");
+		retval = dap_dp_poll_register(dap, DP_CTRL_STAT,
+					      CSYSPWRUPACK, CSYSPWRUPACK,
+					      DAP_POWER_DOMAIN_TIMEOUT);
+		if (retval != ERROR_OK)
+			return retval;
+	}
 
 	retval = dap_queue_dp_read(dap, DP_CTRL_STAT, NULL);
 	if (retval != ERROR_OK)
@@ -688,6 +718,8 @@ int mem_ap_init(struct adiv5_ap *ap)
 	int retval;
 	struct adiv5_dap *dap = ap->dap;
 
+	ap->tar_valid = false;
+	ap->csw_value = 0;      /* force csw and tar write */
 	retval = mem_ap_setup_transfer(ap, CSW_8BIT | CSW_ADDRINC_PACKED, 0);
 	if (retval != ERROR_OK)
 		return retval;
@@ -979,12 +1011,14 @@ static const struct {
 	{ ARM_ID, 0x4a2, "Cortex-A57 ROM",             "(ROM Table)", },
 	{ ARM_ID, 0x4a3, "Cortex-A53 ROM",             "(v7 Memory Map ROM Table)", },
 	{ ARM_ID, 0x4a4, "Cortex-A72 ROM",             "(ROM Table)", },
+	{ ARM_ID, 0x4a9, "Cortex-A9 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x4af, "Cortex-A15 ROM",             "(ROM Table)", },
 	{ ARM_ID, 0x4c0, "Cortex-M0+ ROM",             "(ROM Table)", },
 	{ ARM_ID, 0x4c3, "Cortex-M3 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x4c4, "Cortex-M4 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x4c7, "Cortex-M7 PPB ROM",          "(Private Peripheral Bus ROM Table)", },
 	{ ARM_ID, 0x4c8, "Cortex-M7 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x4b5, "Cortex-R5 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x470, "Cortex-M1 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x471, "Cortex-M0 ROM",              "(ROM Table)", },
 	{ ARM_ID, 0x906, "CoreSight CTI",              "(Cross Trigger)", },
@@ -1025,7 +1059,7 @@ static const struct {
 	{ ARM_ID, 0x9a9, "Cortex-M7 TPIU",             "(Trace Port Interface Unit)", },
 	{ ARM_ID, 0x9ae, "Cortex-A17 PMU",             "(Performance Monitor Unit)", },
 	{ ARM_ID, 0x9af, "Cortex-A15 PMU",             "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9b7, "Cortex-R7 PMU",              "(Performance Monitoring Unit)", },
+	{ ARM_ID, 0x9b7, "Cortex-R7 PMU",              "(Performance Monitor Unit)", },
 	{ ARM_ID, 0x9d3, "Cortex-A53 PMU",             "(Performance Monitor Unit)", },
 	{ ARM_ID, 0x9d7, "Cortex-A57 PMU",             "(Performance Monitor Unit)", },
 	{ ARM_ID, 0x9d8, "Cortex-A72 PMU",             "(Performance Monitor Unit)", },
@@ -1048,6 +1082,11 @@ static const struct {
 	{ 0x0c1,  0x1ed, "XMC1000 ROM",                "(ROM Table)" },
 	{ 0x0E5,  0x000, "SHARC+/Blackfin+",           "", },
 	{ 0x0F0,  0x440, "Qualcomm QDSS Component v1", "(Qualcomm Designed CoreSight Component v1)", },
+	{ 0x3eb,  0x181, "Tegra 186 ROM",              "(ROM Table)", },
+	{ 0x3eb,  0x211, "Tegra 210 ROM",              "(ROM Table)", },
+	{ 0x3eb,  0x202, "Denver ETM",                 "(Denver Embedded Trace)", },
+	{ 0x3eb,  0x302, "Denver Debug",               "(Debug Unit)", },
+	{ 0x3eb,  0x402, "Denver PMU",                 "(Performance Monitor Unit)", },
 	/* legacy comment: 0x113: what? */
 	{ ANY_ID, 0x120, "TI SDTI",                    "(System Debug Trace Interface)", }, /* from OMAP3 memmap */
 	{ ANY_ID, 0x343, "TI DAPCTL",                  "", }, /* from OMAP3 memmap */
@@ -1307,7 +1346,7 @@ static int dap_rom_display(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
-static int dap_info_command(struct command_context *cmd_ctx,
+int dap_info_command(struct command_context *cmd_ctx,
 		struct adiv5_ap *ap)
 {
 	int retval;
@@ -1365,46 +1404,131 @@ static int dap_info_command(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
+enum adiv5_cfg_param {
+	CFG_DAP,
+	CFG_AP_NUM
+};
+
+static const Jim_Nvp nvp_config_opts[] = {
+	{ .name = "-dap",    .value = CFG_DAP },
+	{ .name = "-ap-num", .value = CFG_AP_NUM },
+	{ .name = NULL, .value = -1 }
+};
+
 int adiv5_jim_configure(struct target *target, Jim_GetOptInfo *goi)
 {
 	struct adiv5_private_config *pc;
-	const char *arg;
-	jim_wide ap_num;
 	int e;
 
-	/* check if argv[0] is for us */
-	arg = Jim_GetString(goi->argv[0], NULL);
-	if (strcmp(arg, "-ap-num"))
-		return JIM_CONTINUE;
-
-	e = Jim_GetOpt_String(goi, &arg, NULL);
-	if (e != JIM_OK)
-		return e;
-
-	if (goi->argc == 0) {
-		Jim_WrongNumArgs(goi->interp, goi->argc, goi->argv, "-ap-num ?ap-number? ...");
-		return JIM_ERR;
-	}
-
-	e = Jim_GetOpt_Wide(goi, &ap_num);
-	if (e != JIM_OK)
-		return e;
-
-	if (target->private_config == NULL) {
+	pc = (struct adiv5_private_config *)target->private_config;
+	if (pc == NULL) {
 		pc = calloc(1, sizeof(struct adiv5_private_config));
+		pc->ap_num = -1;
 		target->private_config = pc;
-		pc->ap_num = ap_num;
 	}
 
+	target->has_dap = true;
+
+	if (goi->argc > 0) {
+		Jim_Nvp *n;
+
+		Jim_SetEmptyResult(goi->interp);
+
+		/* check first if topmost item is for us */
+		e = Jim_Nvp_name2value_obj(goi->interp, nvp_config_opts,
+								   goi->argv[0], &n);
+		if (e != JIM_OK)
+			return JIM_CONTINUE;
+
+		e = Jim_GetOpt_Obj(goi, NULL);
+		if (e != JIM_OK)
+			return e;
+
+		switch (n->value) {
+		case CFG_DAP:
+			if (goi->isconfigure) {
+				Jim_Obj *o_t;
+				struct adiv5_dap *dap;
+				e = Jim_GetOpt_Obj(goi, &o_t);
+				if (e != JIM_OK)
+					return e;
+				dap = dap_instance_by_jim_obj(goi->interp, o_t);
+				if (dap == NULL) {
+					Jim_SetResultString(goi->interp, "DAP name invalid!", -1);
+					return JIM_ERR;
+				}
+				if (pc->dap != NULL && pc->dap != dap) {
+					Jim_SetResultString(goi->interp,
+						"DAP assignment cannot be changed after target was created!", -1);
+					return JIM_ERR;
+				}
+				if (target->tap_configured) {
+					Jim_SetResultString(goi->interp,
+						"-chain-position and -dap configparams are mutually exclusive!", -1);
+					return JIM_ERR;
+				}
+				pc->dap = dap;
+				target->tap = dap->tap;
+				target->dap_configured = true;
+			} else {
+				if (goi->argc != 0) {
+					Jim_WrongNumArgs(goi->interp,
+										goi->argc, goi->argv,
+					"NO PARAMS");
+					return JIM_ERR;
+				}
+
+				if (pc->dap == NULL) {
+					Jim_SetResultString(goi->interp, "DAP not configured", -1);
+					return JIM_ERR;
+				}
+				Jim_SetResultString(goi->interp, adiv5_dap_name(pc->dap), -1);
+			}
+			break;
+
+		case CFG_AP_NUM:
+			if (goi->isconfigure) {
+				jim_wide ap_num;
+				e = Jim_GetOpt_Wide(goi, &ap_num);
+				if (e != JIM_OK)
+					return e;
+				pc->ap_num = ap_num;
+			} else {
+				if (goi->argc != 0) {
+					Jim_WrongNumArgs(goi->interp,
+									 goi->argc, goi->argv,
+					  "NO PARAMS");
+					return JIM_ERR;
+				}
+
+				if (pc->ap_num < 0) {
+					Jim_SetResultString(goi->interp, "AP number not configured", -1);
+					return JIM_ERR;
+				}
+				Jim_SetResult(goi->interp, Jim_NewIntObj(goi->interp, (int)pc->ap_num));
+			}
+			break;
+		}
+	}
 
 	return JIM_OK;
 }
 
+int adiv5_verify_config(struct adiv5_private_config *pc)
+{
+	if (pc == NULL)
+		return ERROR_FAIL;
+
+	if (pc->dap == NULL)
+		return ERROR_FAIL;
+
+	return ERROR_OK;
+}
+
+
 COMMAND_HANDLER(handle_dap_info_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t apsel;
 
 	switch (CMD_ARGC) {
@@ -1425,10 +1549,7 @@ COMMAND_HANDLER(handle_dap_info_command)
 
 COMMAND_HANDLER(dap_baseaddr_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t apsel, baseaddr;
 	int retval;
 
@@ -1465,10 +1586,7 @@ COMMAND_HANDLER(dap_baseaddr_command)
 
 COMMAND_HANDLER(dap_memaccess_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t memaccess_tck;
 
 	switch (CMD_ARGC) {
@@ -1491,10 +1609,7 @@ COMMAND_HANDLER(dap_memaccess_command)
 
 COMMAND_HANDLER(dap_apsel_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t apsel, apid;
 	int retval;
 
@@ -1529,26 +1644,35 @@ COMMAND_HANDLER(dap_apsel_command)
 
 COMMAND_HANDLER(dap_apcsw_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
-	uint32_t apcsw = dap->ap[dap->apsel].csw_default, sprot = 0;
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
+	uint32_t apcsw = dap->ap[dap->apsel].csw_default;
+	uint32_t csw_val, csw_mask;
 
 	switch (CMD_ARGC) {
 	case 0:
-		command_print(CMD_CTX, "apsel %" PRIi32 " selected, csw 0x%8.8" PRIx32,
-			(dap->apsel), apcsw);
-		break;
+		command_print(CMD_CTX, "ap %" PRIi32 " selected, csw 0x%8.8" PRIx32,
+			dap->apsel, apcsw);
+		return ERROR_OK;
 	case 1:
-		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], sprot);
-		/* AP address is in bits 31:24 of DP_SELECT */
-		if (sprot > 1)
-			return ERROR_COMMAND_SYNTAX_ERROR;
-		if (sprot)
-			apcsw |= CSW_SPROT;
+		if (strcmp(CMD_ARGV[0], "default") == 0)
+			csw_val = CSW_DEFAULT;
 		else
-			apcsw &= ~CSW_SPROT;
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], csw_val);
+
+		if (csw_val & (CSW_SIZE_MASK | CSW_ADDRINC_MASK)) {
+			LOG_ERROR("CSW value cannot include 'Size' and 'AddrInc' bit-fields");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		apcsw = csw_val;
+		break;
+	case 2:
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], csw_val);
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], csw_mask);
+		if (csw_mask & (CSW_SIZE_MASK | CSW_ADDRINC_MASK)) {
+			LOG_ERROR("CSW mask cannot include 'Size' and 'AddrInc' bit-fields");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		apcsw = (apcsw & ~csw_mask) | (csw_val & csw_mask);
 		break;
 	default:
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -1562,10 +1686,7 @@ COMMAND_HANDLER(dap_apcsw_command)
 
 COMMAND_HANDLER(dap_apid_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t apsel, apid;
 	int retval;
 
@@ -1597,10 +1718,7 @@ COMMAND_HANDLER(dap_apid_command)
 
 COMMAND_HANDLER(dap_apreg_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t apsel, reg, value;
 	int retval;
 
@@ -1636,10 +1754,7 @@ COMMAND_HANDLER(dap_apreg_command)
 
 COMMAND_HANDLER(dap_ti_be_32_quirks_command)
 {
-	struct target *target = get_current_target(CMD_CTX);
-	struct arm *arm = target_to_arm(target);
-	struct adiv5_dap *dap = arm->dap;
-
+	struct adiv5_dap *dap = adiv5_get_dap(CMD_DATA);
 	uint32_t enable = dap->ti_be_32_quirks;
 
 	switch (CMD_ARGC) {
@@ -1660,7 +1775,7 @@ COMMAND_HANDLER(dap_ti_be_32_quirks_command)
 	return 0;
 }
 
-static const struct command_registration dap_commands[] = {
+const struct command_registration dap_instance_commands[] = {
 	{
 		.name = "info",
 		.handler = handle_dap_info_command,
@@ -1681,8 +1796,8 @@ static const struct command_registration dap_commands[] = {
 		.name = "apcsw",
 		.handler = dap_apcsw_command,
 		.mode = COMMAND_EXEC,
-		.help = "Set csw access bit ",
-		.usage = "[sprot]",
+		.help = "Set CSW default bits",
+		.usage = "[value [mask]]",
 	},
 
 	{
@@ -1723,17 +1838,6 @@ static const struct command_registration dap_commands[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "set/get quirks mode for TI TMS450/TMS570 processors",
 		.usage = "[enable]",
-	},
-	COMMAND_REGISTRATION_DONE
-};
-
-const struct command_registration dap_command_handlers[] = {
-	{
-		.name = "dap",
-		.mode = COMMAND_EXEC,
-		.help = "DAP command group",
-		.usage = "",
-		.chain = dap_commands,
 	},
 	COMMAND_REGISTRATION_DONE
 };

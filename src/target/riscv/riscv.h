@@ -30,13 +30,13 @@ enum riscv_halt_reason {
 	RISCV_HALT_INTERRUPT,
 	RISCV_HALT_BREAKPOINT,
 	RISCV_HALT_SINGLESTEP,
-	RISCV_HALT_UNKNOWN
+	RISCV_HALT_TRIGGER,
+	RISCV_HALT_UNKNOWN,
+	RISCV_HALT_ERROR
 };
 
 typedef struct {
 	unsigned dtm_version;
-
-	riscv_reg_t misa;
 
 	struct command_context *cmd_ctx;
 	void *version_specific;
@@ -67,6 +67,7 @@ typedef struct {
 
 	/* It's possible that each core has a different supported ISA set. */
 	int xlen[RISCV_MAX_HARTS];
+	riscv_reg_t misa[RISCV_MAX_HARTS];
 
 	/* The number of triggers per hart. */
 	unsigned trigger_count[RISCV_MAX_HARTS];
@@ -88,17 +89,18 @@ typedef struct {
 
 	/* Helper functions that target the various RISC-V debug spec
 	 * implementations. */
-	riscv_reg_t (*get_register)(struct target *, int hartid, int regid);
+	int (*get_register)(struct target *target,
+		riscv_reg_t *value, int hid, int rid);
 	int (*set_register)(struct target *, int hartid, int regid,
 			uint64_t value);
-	void (*select_current_hart)(struct target *);
+	int (*select_current_hart)(struct target *);
 	bool (*is_halted)(struct target *target);
 	int (*halt_current_hart)(struct target *);
 	int (*resume_current_hart)(struct target *target);
 	int (*step_current_hart)(struct target *target);
-	void (*on_halt)(struct target *target);
-	void (*on_resume)(struct target *target);
-	void (*on_step)(struct target *target);
+	int (*on_halt)(struct target *target);
+	int (*on_resume)(struct target *target);
+	int (*on_step)(struct target *target);
 	enum riscv_halt_reason (*halt_reason)(struct target *target);
 	int (*write_debug_buffer)(struct target *target, unsigned index,
 			riscv_insn_t d);
@@ -108,6 +110,12 @@ typedef struct {
 	void (*fill_dmi_write_u64)(struct target *target, char *buf, int a, uint64_t d);
 	void (*fill_dmi_read_u64)(struct target *target, char *buf, int a);
 	void (*fill_dmi_nop_u64)(struct target *target, char *buf);
+
+	int (*authdata_read)(struct target *target, uint32_t *value);
+	int (*authdata_write)(struct target *target, uint32_t value);
+
+	int (*dmi_read)(struct target *target, uint32_t *value, uint32_t address);
+	int (*dmi_write)(struct target *target, uint32_t address, uint32_t value);
 } riscv_info_t;
 
 /* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
@@ -118,6 +126,8 @@ extern int riscv_reset_timeout_sec;
 
 extern bool riscv_use_scratch_ram;
 extern uint64_t riscv_scratch_ram_address;
+
+extern bool riscv_prefer_sba;
 
 /* Everything needs the RISC-V specific info structure, so here's a nice macro
  * that provides that. */
@@ -173,7 +183,7 @@ int riscv_resume_one_hart(struct target *target, int hartid);
  * then the only hart. */
 int riscv_step_rtos_hart(struct target *target);
 
-bool riscv_supports_extension(struct target *target, char letter);
+bool riscv_supports_extension(struct target *target, int hartid, char letter);
 
 /* Returns XLEN for the given (or current) hart. */
 int riscv_xlen(const struct target *target);
@@ -183,7 +193,7 @@ bool riscv_rtos_enabled(const struct target *target);
 
 /* Sets the current hart, which is the hart that will actually be used when
  * issuing debug commands. */
-void riscv_set_current_hartid(struct target *target, int hartid);
+int riscv_set_current_hartid(struct target *target, int hartid);
 int riscv_current_hartid(const struct target *target);
 
 /*** Support functions for the RISC-V 'RTOS', which provides multihart support
@@ -205,18 +215,15 @@ bool riscv_has_register(struct target *target, int hartid, int regid);
  * are zero extended to 64 bits.  */
 int riscv_set_register(struct target *target, enum gdb_regno i, riscv_reg_t v);
 int riscv_set_register_on_hart(struct target *target, int hid, enum gdb_regno rid, uint64_t v);
-riscv_reg_t riscv_get_register(struct target *target, enum gdb_regno i);
-riscv_reg_t riscv_get_register_on_hart(struct target *target, int hid, enum gdb_regno rid);
+int riscv_get_register(struct target *target, riscv_reg_t *value,
+		enum gdb_regno r);
+int riscv_get_register_on_hart(struct target *target, riscv_reg_t *value,
+		int hartid, enum gdb_regno regid);
 
 /* Checks the state of the current hart -- "is_halted" checks the actual
  * on-device register. */
 bool riscv_is_halted(struct target *target);
 enum riscv_halt_reason riscv_halt_reason(struct target *target, int hartid);
-
-/* Returns the number of triggers availiable to either the current hart or to
- * the given hart. */
-int riscv_count_triggers(struct target *target);
-int riscv_count_triggers_of_hart(struct target *target, int hartid);
 
 /* These helper functions let the generic program interface get target-specific
  * information. */

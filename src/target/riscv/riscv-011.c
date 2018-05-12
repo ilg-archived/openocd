@@ -217,7 +217,8 @@ typedef struct {
 
 static int poll_target(struct target *target, bool announce);
 static int riscv011_poll(struct target *target);
-static riscv_reg_t get_register(struct target *target, int hartid, int regid);
+static int get_register(struct target *target, riscv_reg_t *value, int hartid,
+		int regid);
 
 /*** Utility functions. ***/
 
@@ -335,7 +336,7 @@ static void increase_dbus_busy_delay(struct target *target)
 {
 	riscv011_info_t *info = get_info(target);
 	info->dbus_busy_delay += info->dbus_busy_delay / 10 + 1;
-	LOG_INFO("dtmcontrol_idle=%d, dbus_busy_delay=%d, interrupt_high_delay=%d",
+	LOG_DEBUG("dtmcontrol_idle=%d, dbus_busy_delay=%d, interrupt_high_delay=%d",
 			info->dtmcontrol_idle, info->dbus_busy_delay,
 			info->interrupt_high_delay);
 
@@ -346,7 +347,7 @@ static void increase_interrupt_high_delay(struct target *target)
 {
 	riscv011_info_t *info = get_info(target);
 	info->interrupt_high_delay += info->interrupt_high_delay / 10 + 1;
-	LOG_INFO("dtmcontrol_idle=%d, dbus_busy_delay=%d, interrupt_high_delay=%d",
+	LOG_DEBUG("dtmcontrol_idle=%d, dbus_busy_delay=%d, interrupt_high_delay=%d",
 			info->dtmcontrol_idle, info->dbus_busy_delay,
 			info->interrupt_high_delay);
 }
@@ -435,7 +436,7 @@ static dbus_status_t dbus_scan(struct target *target, uint16_t *address_in,
 	int retval = jtag_execute_queue();
 	if (retval != ERROR_OK) {
 		LOG_ERROR("dbus_scan failed jtag scan");
-		return retval;
+		return DBUS_STATUS_FAILED;
 	}
 
 	if (data_in)
@@ -455,11 +456,20 @@ static uint64_t dbus_read(struct target *target, uint16_t address)
 	dbus_status_t status;
 	uint16_t address_in;
 
+	/* If the previous read/write was to the same address, we will get the read data
+	 * from the previous access.
+	 * While somewhat nonintuitive, this is an efficient way to get the data.
+	 */
+
 	unsigned i = 0;
 	do {
 		status = dbus_scan(target, &address_in, &value, DBUS_OP_READ, address, 0);
 		if (status == DBUS_STATUS_BUSY)
 			increase_dbus_busy_delay(target);
+		if (status == DBUS_STATUS_FAILED) {
+			LOG_ERROR("dbus_read(0x%x) failed!", address);
+			return 0;
+		}
 	} while (((status == DBUS_STATUS_BUSY) || (address_in != address)) &&
 			i++ < 256);
 
@@ -669,6 +679,9 @@ static bits_t read_bits(struct target *target)
 					return err_result;
 				}
 				increase_dbus_busy_delay(target);
+			} else if (status == DBUS_STATUS_FAILED) {
+				/* TODO: return an actual error */
+				return err_result;
 			}
 		} while (status == DBUS_STATUS_BUSY && i++ < 256);
 
@@ -854,6 +867,7 @@ static int cache_write(struct target *target, unsigned int address, bool run)
 
 	int retval = scans_execute(scans);
 	if (retval != ERROR_OK) {
+		scans_delete(scans);
 		LOG_ERROR("JTAG execute failed.");
 		return retval;
 	}
@@ -867,12 +881,14 @@ static int cache_write(struct target *target, unsigned int address, bool run)
 				break;
 			case DBUS_STATUS_FAILED:
 				LOG_ERROR("Debug RAM write failed. Hardware error?");
+				scans_delete(scans);
 				return ERROR_FAIL;
 			case DBUS_STATUS_BUSY:
 				errors++;
 				break;
 			default:
 				LOG_ERROR("Got invalid bus access status: %d", status);
+				scans_delete(scans);
 				return ERROR_FAIL;
 		}
 	}
@@ -895,6 +911,7 @@ static int cache_write(struct target *target, unsigned int address, bool run)
 		if (wait_for_debugint_clear(target, true) != ERROR_OK) {
 			LOG_ERROR("Debug interrupt didn't clear.");
 			dump_debug_ram(target);
+			scans_delete(scans);
 			return ERROR_FAIL;
 		}
 
@@ -915,6 +932,7 @@ static int cache_write(struct target *target, unsigned int address, bool run)
 				if (wait_for_debugint_clear(target, false) != ERROR_OK) {
 					LOG_ERROR("Debug interrupt didn't clear.");
 					dump_debug_ram(target);
+					scans_delete(scans);
 					return ERROR_FAIL;
 				}
 			} else {
@@ -997,7 +1015,8 @@ static int read_csr(struct target *target, uint64_t *value, uint32_t csr)
 
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
-		LOG_WARNING("Got exception 0x%x when reading CSR 0x%x", exception, csr);
+		LOG_WARNING("Got exception 0x%x when reading %s", exception,
+				gdb_regno_name(GDB_REGNO_CSR0 + csr));
 		*value = ~0;
 		return ERROR_FAIL;
 	}
@@ -1179,8 +1198,8 @@ static int update_mstatus_actual(struct target *target)
 
 	/* Force reading the register. In that process mstatus_actual will be
 	 * updated. */
-	get_register(target, 0, GDB_REGNO_MSTATUS);
-	return ERROR_OK;
+	riscv_reg_t mstatus;
+	return get_register(target, &mstatus, 0, GDB_REGNO_MSTATUS);
 }
 
 /*** OpenOCD target functions. ***/
@@ -1202,8 +1221,7 @@ static int register_read(struct target *target, riscv_reg_t *value, int regnum)
 
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
-		LOG_WARNING("Got exception 0x%x when reading register %d", exception,
-				regnum);
+		LOG_WARNING("Got exception 0x%x when reading %s", exception, gdb_regno_name(regnum));
 		*value = ~0;
 		return ERROR_FAIL;
 	}
@@ -1277,30 +1295,30 @@ static int register_write(struct target *target, unsigned int number,
 
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
-		LOG_WARNING("Got exception 0x%x when writing register %d", exception,
-				number);
+		LOG_WARNING("Got exception 0x%x when writing %s", exception,
+				gdb_regno_name(number));
 		return ERROR_FAIL;
 	}
 
 	return ERROR_OK;
 }
 
-static riscv_reg_t get_register(struct target *target, int hartid, int regid)
+static int get_register(struct target *target, riscv_reg_t *value, int hartid,
+		int regid)
 {
 	assert(hartid == 0);
 	riscv011_info_t *info = get_info(target);
 
 	maybe_write_tselect(target);
-	riscv_reg_t value = ~0;
 
 	if (regid <= GDB_REGNO_XPR31) {
-		value = reg_cache_get(target, regid);
+		*value = reg_cache_get(target, regid);
 	} else if (regid == GDB_REGNO_PC) {
-		value = info->dpc;
+		*value = info->dpc;
 	} else if (regid >= GDB_REGNO_FPR0 && regid <= GDB_REGNO_FPR31) {
 		int result = update_mstatus_actual(target);
 		if (result != ERROR_OK)
-			return ~0;
+			return result;
 		unsigned i = 0;
 		if ((info->mstatus_actual & MSTATUS_FS) == 0) {
 			info->mstatus_actual = set_field(info->mstatus_actual, MSTATUS_FS, 1);
@@ -1316,17 +1334,19 @@ static riscv_reg_t get_register(struct target *target, int hartid, int regid)
 		cache_set_jump(target, i++);
 
 		if (cache_write(target, 4, true) != ERROR_OK)
-			return ~0;
+			return ERROR_FAIL;
 	} else if (regid == GDB_REGNO_PRIV) {
-		value = get_field(info->dcsr, DCSR_PRV);
-	} else if (register_read(target, &value, regid) != ERROR_OK) {
-		value = ~0;
+		*value = get_field(info->dcsr, DCSR_PRV);
+	} else {
+		int result = register_read(target, value, regid);
+		if (result != ERROR_OK)
+			return result;
 	}
 
 	if (regid == GDB_REGNO_MSTATUS)
 		target->reg_cache->reg_list[regid].valid = true;
 
-	return value;
+	return ERROR_OK;
 }
 
 static int set_register(struct target *target, int hartid, int regid,
@@ -1552,11 +1572,11 @@ static int examine(struct target *target)
 	}
 	LOG_DEBUG("Discovered XLEN is %d", riscv_xlen(target));
 
-	if (read_csr(target, &r->misa, CSR_MISA) != ERROR_OK) {
+	if (read_csr(target, &r->misa[0], CSR_MISA) != ERROR_OK) {
 		const unsigned old_csr_misa = 0xf10;
 		LOG_WARNING("Failed to read misa at 0x%x; trying 0x%x.", CSR_MISA,
 				old_csr_misa);
-		if (read_csr(target, &r->misa, old_csr_misa) != ERROR_OK) {
+		if (read_csr(target, &r->misa[0], old_csr_misa) != ERROR_OK) {
 			/* Maybe this is an old core that still has $misa at the old
 			 * address. */
 			LOG_ERROR("Failed to read misa at 0x%x.", old_csr_misa);
@@ -1578,7 +1598,7 @@ static int examine(struct target *target)
 	for (size_t i = 0; i < 32; ++i)
 		reg_cache_set(target, i, -1);
 	LOG_INFO("Examined RISCV core; XLEN=%d, misa=0x%" PRIx64,
-			riscv_xlen(target), r->misa);
+			riscv_xlen(target), r->misa[0]);
 
 	return ERROR_OK;
 }
@@ -1796,14 +1816,14 @@ static riscv_error_t handle_halt_routine(struct target *target)
 	info->dpc = reg_cache_get(target, CSR_DPC);
 	info->dcsr = reg_cache_get(target, CSR_DCSR);
 
-	scans = scans_delete(scans);
+	scans_delete(scans);
 
 	cache_invalidate(target);
 
 	return RE_OK;
 
 error:
-	scans = scans_delete(scans);
+	scans_delete(scans);
 	return RE_FAIL;
 }
 
@@ -2271,6 +2291,7 @@ static int write_memory(struct target *target, target_addr_t address,
 		goto error;
 	}
 
+	scans_delete(scans);
 	cache_clean(target);
 	return register_write(target, T0, t0);
 
