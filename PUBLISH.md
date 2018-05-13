@@ -108,6 +108,17 @@ In the web git:
 - `download_url: https://github.com/gnu-mcu-eclipse/openocd/releases/tag/v0.10.0-8-20180512`
 - use something like `v0.10.0-8 update link` as message
 
+## Create the xPack release
+
+Follow the instructions on the 
+[openocd-xpack](https://github.com/gnu-mcu-eclipse/openocd-xpack/blob/xpack/README.md#maintainer-info)
+page.
+
+## Update the release with xPack easy install
+
+- copy the **Easy install** section from a previous release
+- update release number
+
 ## Share on Facebook
 
 - go to the new post and follow the Share link.
