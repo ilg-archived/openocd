@@ -127,3 +127,7 @@ page.
 - posting as GNU MCU Eclipse
 - click **Post to Facebook**
 - check the post in the [Facebook page](https://www.facebook.com/gnu-mcu-eclipse)
+
+## Links
+
+- [Submitting patches to the OpenOCD Gerrit server](http://openocd.org/doc-release/doxygen/patchguide.html)
