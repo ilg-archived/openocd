@@ -35,7 +35,7 @@ page.
 
 ## Prepare a new blog post 
 
-In the web git:
+In the `gnu-mcu-eclipse.github.io-source.git` web git:
 
 - add a new file to `_posts/openocd/releases`
 - name the file like `2018-05-12-openocd-v0-10-0-8-20180512-released.md`
@@ -88,7 +88,7 @@ otherwise Travis will complain and do not publish the site to
 
 - go to the [GitHub Releases](https://github.com/gnu-mcu-eclipse/openocd/releases) page
 - click **Draft a new release**
-- name the tag like **v0.10.0-8** (mind the dash in the middle!)
+- name the tag like **v0.10.0-8-20180512** (mind the dash in the middle!)
 - name the release like **GNU MCU Eclipse OpenOCD v0.10.0-8-20180512** 
 (mind the dash and the space)
 - as description
