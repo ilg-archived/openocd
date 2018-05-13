@@ -41,37 +41,36 @@
  *   that you do not use these.
  */
 
-enum semihosting_operation_numbers
-{
-    /*
-     * ARM semihosting operations, in lexicographic order.
-     */
-    SEMIHOSTING_ENTER_SVC = 0x17, /* DEPRECATED */
-    
-    SEMIHOSTING_SYS_CLOSE = 0x02,
-    SEMIHOSTING_SYS_CLOCK = 0x10,
-    SEMIHOSTING_SYS_ELAPSED = 0x30,
-    SEMIHOSTING_SYS_ERRNO = 0x13,
-    SEMIHOSTING_SYS_EXIT = 0x18,
-    SEMIHOSTING_SYS_EXIT_EXTENDED = 0x20,
-    SEMIHOSTING_SYS_FLEN = 0x0C,
-    SEMIHOSTING_SYS_GET_CMDLINE = 0x15,
-    SEMIHOSTING_SYS_HEAPINFO = 0x16,
-    SEMIHOSTING_SYS_ISERROR = 0x08,
-    SEMIHOSTING_SYS_ISTTY = 0x09,
-    SEMIHOSTING_SYS_OPEN = 0x01,
-    SEMIHOSTING_SYS_READ = 0x06,
-    SEMIHOSTING_SYS_READC = 0x07,
-    SEMIHOSTING_SYS_REMOVE = 0x0E,
-    SEMIHOSTING_SYS_RENAME = 0x0F,
-    SEMIHOSTING_SYS_SEEK = 0x0A,
-    SEMIHOSTING_SYS_SYSTEM = 0x12,
-    SEMIHOSTING_SYS_TICKFREQ = 0x31,
-    SEMIHOSTING_SYS_TIME = 0x11,
-    SEMIHOSTING_SYS_TMPNAM = 0x0D,
-    SEMIHOSTING_SYS_WRITE = 0x05,
-    SEMIHOSTING_SYS_WRITEC = 0x03,
-    SEMIHOSTING_SYS_WRITE0 = 0x04,
+enum semihosting_operation_numbers {
+	/*
+	 * ARM semihosting operations, in lexicographic order.
+	 */
+	SEMIHOSTING_ENTER_SVC = 0x17,	/* DEPRECATED */
+
+	SEMIHOSTING_SYS_CLOSE = 0x02,
+	SEMIHOSTING_SYS_CLOCK = 0x10,
+	SEMIHOSTING_SYS_ELAPSED = 0x30,
+	SEMIHOSTING_SYS_ERRNO = 0x13,
+	SEMIHOSTING_SYS_EXIT = 0x18,
+	SEMIHOSTING_SYS_EXIT_EXTENDED = 0x20,
+	SEMIHOSTING_SYS_FLEN = 0x0C,
+	SEMIHOSTING_SYS_GET_CMDLINE = 0x15,
+	SEMIHOSTING_SYS_HEAPINFO = 0x16,
+	SEMIHOSTING_SYS_ISERROR = 0x08,
+	SEMIHOSTING_SYS_ISTTY = 0x09,
+	SEMIHOSTING_SYS_OPEN = 0x01,
+	SEMIHOSTING_SYS_READ = 0x06,
+	SEMIHOSTING_SYS_READC = 0x07,
+	SEMIHOSTING_SYS_REMOVE = 0x0E,
+	SEMIHOSTING_SYS_RENAME = 0x0F,
+	SEMIHOSTING_SYS_SEEK = 0x0A,
+	SEMIHOSTING_SYS_SYSTEM = 0x12,
+	SEMIHOSTING_SYS_TICKFREQ = 0x31,
+	SEMIHOSTING_SYS_TIME = 0x11,
+	SEMIHOSTING_SYS_TMPNAM = 0x0D,
+	SEMIHOSTING_SYS_WRITE = 0x05,
+	SEMIHOSTING_SYS_WRITEC = 0x03,
+	SEMIHOSTING_SYS_WRITE0 = 0x04,
 };
 
 /*
@@ -79,12 +78,11 @@ enum semihosting_operation_numbers
  * SEMIHOSTING_REPORT_EXCEPTION).
  * On 64-bits, the exit code is passed explicitly.
  */
-enum semihosting_reported_exceptions
-{
-    /* On 32 bits, use it for exit(0) */
-    ADP_STOPPED_APPLICATION_EXIT = ((2 << 16) + 38),
-    /* On 32 bits, use it for exit(1) */
-    ADP_STOPPED_RUN_TIME_ERROR = ((2 << 16) + 35),
+enum semihosting_reported_exceptions {
+	/* On 32 bits, use it for exit(0) */
+	ADP_STOPPED_APPLICATION_EXIT = ((2 << 16) + 38),
+	/* On 32 bits, use it for exit(1) */
+	ADP_STOPPED_RUN_TIME_ERROR = ((2 << 16) + 35),
 };
 
 struct target;
@@ -93,60 +91,60 @@ struct target;
  * A pointer to this structure was added to the target structure.
  */
 struct semihosting {
-    
-    /** A flag reporting whether semihosting is active. */
-    bool is_active;
-    
-    /** A flag reporting whether semihosting fileio is active. */
-    bool is_fileio;
-    
-    /** A flag reporting whether semihosting fileio operation is active. */
-    bool hit_fileio;
-    
-    /** Most are resumable, except the two exit calls. */
-    bool is_resumable;
 
-    /**
-     * When exit is called during a debug session, execution anyway
-     * returns to the debugger, execution halting to the BRK.
-     * The standard allows for exit to return, but the condition
-     * to trigger this is a bit obscure ("by performing an RDI_Execute
-     * request or equivalent").
-     * To make the exit call return, enable this.
-     */
-    bool has_resumable_exit;
+	/** A flag reporting whether semihosting is active. */
+	bool is_active;
 
-    /** The Target (hart) word size; 8 for 64-bits targets. */
-    size_t word_size_bytes;
-    
-    /** The current semihosting operation (R0). */
-    int op;
-    
-    /** The current semihosting parameter (R1). */
-    uint64_t param;
-    
-    /**
-     * The current semihosting result to be returned to the application.
-     * Usually 0 for success, -1 for error,
-     * but sometimes a useful value, even a pointer.
-     */
-    int64_t result;
-    
-    /** The value to be returned by semihosting SYS_ERRNO request. */
-    int sys_errno;
-    
-    /** The semihosting command line to be passed to the target. */
-    char *cmdline;
-  
-    /** The current time when 'execution starts' */
-    clock_t setup_time;
+	/** A flag reporting whether semihosting fileio is active. */
+	bool is_fileio;
 
-    int (*setup)(struct target *target, int enable);
-    int (*post_result)(struct target *target);
+	/** A flag reporting whether semihosting fileio operation is active. */
+	bool hit_fileio;
+
+	/** Most are resumable, except the two exit calls. */
+	bool is_resumable;
+
+	/**
+	 * When exit is called during a debug session, execution anyway
+	 * returns to the debugger, execution halting to the BRK.
+	 * The standard allows for exit to return, but the condition
+	 * to trigger this is a bit obscure ("by performing an RDI_Execute
+	 * request or equivalent").
+	 * To make the exit call return, enable this.
+	 */
+	bool has_resumable_exit;
+
+	/** The Target (hart) word size; 8 for 64-bits targets. */
+	size_t word_size_bytes;
+
+	/** The current semihosting operation (R0). */
+	int op;
+
+	/** The current semihosting parameter (R1). */
+	uint64_t param;
+
+	/**
+	 * The current semihosting result to be returned to the application.
+	 * Usually 0 for success, -1 for error,
+	 * but sometimes a useful value, even a pointer.
+	 */
+	int64_t result;
+
+	/** The value to be returned by semihosting SYS_ERRNO request. */
+	int sys_errno;
+
+	/** The semihosting command line to be passed to the target. */
+	char *cmdline;
+
+	/** The current time when 'execution starts' */
+	clock_t setup_time;
+
+	int (*setup)(struct target *target, int enable);
+	int (*post_result)(struct target *target);
 };
 
 int semihosting_common_init(struct target *target, void *setup,
-                            void *post_result);
+	void *post_result);
 int semihosting_common(struct target *target);
 
-#endif /* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */
+#endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */
