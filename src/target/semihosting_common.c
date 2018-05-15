@@ -275,7 +275,7 @@ int semihosting_common(struct target *target)
 			 * callers to indicate an application exit with a specified exit
 			 * code. Semihosting callers may prefer to check for the presence
 			 * of the SH_EXT_EXTENDED_REPORT_EXCEPTION extension and use
-			 * the SYS_REPORT_EXCEPTION_EXTENDED op- eration instead, if it
+			 * the SYS_REPORT_EXCEPTION_EXTENDED operation instead, if it
 			 * is available.
 			 *
 			 * Entry (32-bit)
@@ -368,7 +368,7 @@ int semihosting_common(struct target *target)
 			 * This operation is only supported if the semihosting extension
 			 * SH_EXT_EXIT_EXTENDED is implemented. SH_EXT_EXIT_EXTENDED is
 			 * reported using feature byte 0, bit 0. If this extension is
-			 * supported, then the im- plementation provides a means to
+			 * supported, then the implementation provides a means to
 			 * report a normal exit with a nonzero exit status in both 32-bit
 			 * and 64-bit semihosting APIs.
 			 *
@@ -1335,7 +1335,7 @@ static int semihosting_common_fileio_info(struct target *target,
 		return ERROR_FAIL;
 
 	/*
-	 * To avoid uneccessary duplication, semihosting prepares the
+	 * To avoid unnecessary duplication, semihosting prepares the
 	 * fileio_info structure out-of-band when the target halts. See
 	 * do_semihosting for more detail.
 	 */

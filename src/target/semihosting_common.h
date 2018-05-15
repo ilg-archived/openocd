@@ -1,4 +1,7 @@
 /***************************************************************************
+ *   Copyright (C) 2018 by Liviu Ionescu                                   *
+ *   <ilg@livius.net>                                                      *
+ *                                                                         *
  *   Copyright (C) 2009 by Marvell Technology Group Ltd.                   *
  *   Written by Nicolas Pitre <nico@marvell.com>                           *
  *                                                                         *
@@ -24,7 +27,7 @@
 #include <time.h>
 
 /*
- * Acording to:
+ * According to:
  * "Semihosting for AArch32 and AArch64, Release 2.0"
  * https://static.docs.arm.com/100863/0200/semihosting.pdf
  * from ARM Ltd.
