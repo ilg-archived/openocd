@@ -452,10 +452,10 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 			(target->smp))) {	/* in smp several current thread are possible */
 		char *hex_reg_list;
 
-        LOG_DEBUG("RTOS: getting register list for thread 0x%" PRIx64
-                    ", target->rtos->current_thread=0x%" PRIx64 "\r\n",
-                    current_threadid,
-                    target->rtos->current_thread);
+		LOG_DEBUG("RTOS: getting register list for thread 0x%" PRIx64
+				  ", target->rtos->current_thread=0x%" PRIx64 "\r\n",
+										current_threadid,
+										target->rtos->current_thread);
 
 		int retval = target->rtos->type->get_thread_reg_list(target->rtos,
 				current_threadid,

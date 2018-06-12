@@ -1043,9 +1043,6 @@ int armv8_aarch64_state(struct target *target)
 		return ERROR_FAIL;
 	}
 
-// [GNU MCU Eclipse]
-#if defined(USE_ORIGINAL_SEMIHOSTING)
-
 	LOG_USER("target halted in %s state due to %s, current mode: %s\n"
 		"cpsr: 0x%8.8" PRIx32 " pc: 0x%" PRIx64 "%s",
 		armv8_state_strings[arm->core_state],
@@ -1055,19 +1052,6 @@ int armv8_aarch64_state(struct target *target)
 		buf_get_u64(arm->pc->value, 0, 64),
 		target->semihosting->is_active ? ", semihosting" : "");
 
-#else
-  
-    LOG_USER("target halted in %s state due to %s, current mode: %s\n"
-             "cpsr: 0x%8.8" PRIx32 " pc: 0x%" PRIx64 "%s",
-             armv8_state_strings[arm->core_state],
-             debug_reason_name(target),
-             armv8_mode_name(arm->core_mode),
-             buf_get_u32(arm->cpsr->value, 0, 32),
-             buf_get_u64(arm->pc->value, 0, 64),
-             target->semihosting->is_active ? ", semihosting" : "");
-
-#endif /* defined(USE_ORIGINAL_SEMIHOSTING) */
-    
 	return ERROR_OK;
 }
 
