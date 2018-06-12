@@ -1528,36 +1528,36 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 };
 
 // [GNU MCU Eclipse]
-extern __COMMAND_HANDLER(handle_common_arm_semihosting_command);
-extern __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command);
-extern __COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command);
-extern __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline);
+extern __COMMAND_HANDLER(handle_common_semihosting_command);
+extern __COMMAND_HANDLER(handle_common_semihosting_fileio_command);
+extern __COMMAND_HANDLER(handle_common_semihosting_resumable_exit_command);
+extern __COMMAND_HANDLER(handle_common_semihosting_cmdline);
 
 static const struct command_registration arm_exec_command_handlers[] = {
     {
         "semihosting",
-        .handler = handle_common_arm_semihosting_command,
+        .handler = handle_common_semihosting_command,
         .mode = COMMAND_EXEC,
         .usage = "['enable'|'disable']",
         .help = "activate support for semihosting operations",
     },
     {
         "semihosting_cmdline",
-        .handler = handle_common_arm_semihosting_cmdline,
+        .handler = handle_common_semihosting_cmdline,
         .mode = COMMAND_EXEC,
         .usage = "arguments",
         .help = "command line arguments to be passed to program",
     },
     {
         "semihosting_fileio",
-        .handler = handle_common_arm_semihosting_fileio_command,
+        .handler = handle_common_semihosting_fileio_command,
         .mode = COMMAND_EXEC,
         .usage = "['enable'|'disable']",
         .help = "activate support for semihosting fileio operations",
     },
     {
         "semihosting_resexit",
-        .handler = handle_common_arm_semihosting_resumable_exit_command,
+        .handler = handle_common_semihosting_resumable_exit_command,
         .mode = COMMAND_EXEC,
         .usage = "['enable'|'disable']",
         .help = "activate support for semihosting resumable exit",
