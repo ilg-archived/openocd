@@ -232,6 +232,11 @@ static struct target_type *get_target_type(struct target *target)
 {
 	riscv_info_t *info = (riscv_info_t *) target->arch_info;
 
+	if (!info) {
+		LOG_ERROR("Target has not been initialized");
+		return NULL;
+	}
+
 	switch (info->dtm_version) {
 		case 0:
 			return &riscv011_target;
@@ -268,9 +273,11 @@ static void riscv_deinit_target(struct target *target)
 {
 	LOG_DEBUG("riscv_deinit_target()");
 	struct target_type *tt = get_target_type(target);
-	tt->deinit_target(target);
-	riscv_info_t *info = (riscv_info_t *) target->arch_info;
-	free(info);
+	if (tt) {
+		tt->deinit_target(target);
+		riscv_info_t *info = (riscv_info_t *) target->arch_info;
+		free(info);
+	}
 	target->arch_info = NULL;
 }
 
@@ -403,6 +410,9 @@ static int add_trigger(struct target *target, struct trigger *trigger)
 {
 	RISCV_INFO(r);
 
+	if (riscv_enumerate_triggers(target) != ERROR_OK)
+		return ERROR_FAIL;
+
 	/* In RTOS mode, we need to set the same trigger in the same slot on every
 	 * hart, to keep up the illusion that each hart is a thread running on the
 	 * same core. */
@@ -526,6 +536,9 @@ int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 static int remove_trigger(struct target *target, struct trigger *trigger)
 {
 	RISCV_INFO(r);
+
+	if (riscv_enumerate_triggers(target) != ERROR_OK)
+		return ERROR_FAIL;
 
 	int first_hart = -1;
 	for (int hartid = 0; hartid < riscv_count_harts(target); ++hartid) {
@@ -1823,6 +1836,10 @@ bool riscv_has_register(struct target *target, int hartid, int regid)
 	return 1;
 }
 
+/**
+ * This function is called when the debug user wants to change the value of a
+ * register. The new value may be cached, and may not be written until the hart
+ * is resumed. */
 int riscv_set_register(struct target *target, enum gdb_regno r, riscv_reg_t v)
 {
 	return riscv_set_register_on_hart(target, riscv_current_hartid(target), r, v);
@@ -1940,6 +1957,11 @@ bool riscv_hart_enabled(struct target *target, int hartid)
 int riscv_enumerate_triggers(struct target *target)
 {
 	RISCV_INFO(r);
+
+	if (r->triggers_enumerated)
+		return ERROR_OK;
+
+	r->triggers_enumerated = true;	/* At the very least we tried. */
 
 	for (int hartid = 0; hartid < riscv_count_harts(target); ++hartid) {
 		if (!riscv_hart_enabled(target, hartid))

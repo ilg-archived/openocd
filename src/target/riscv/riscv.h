@@ -7,7 +7,7 @@ struct riscv_program;
 #include "opcodes.h"
 #include "gdb_regs.h"
 
-/* The register cache is staticly allocated. */
+/* The register cache is statically allocated. */
 #define RISCV_MAX_HARTS 32
 #define RISCV_MAX_REGISTERS 5000
 #define RISCV_MAX_TRIGGERS 32
@@ -86,6 +86,8 @@ typedef struct {
 
 	/* This hart contains an implicit ebreak at the end of the program buffer. */
 	bool impebreak;
+
+	bool triggers_enumerated;
 
 	/* Helper functions that target the various RISC-V debug spec
 	 * implementations. */

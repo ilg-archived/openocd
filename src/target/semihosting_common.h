@@ -108,22 +108,32 @@ struct semihosting {
 	bool is_resumable;
 
 	/**
-	 * When exit is called during a debug session, execution anyway
-	 * returns to the debugger, execution halting to the BRK.
-	 * The standard allows for exit to return, but the condition
-	 * to trigger this is a bit obscure ("by performing an RDI_Execute
+	 * When SEMIHOSTING_SYS_EXIT is called outside a debug session,
+	 * things are simple, the openocd process calls exit() and passes
+	 * the value returned by the target.
+	 * When SEMIHOSTING_SYS_EXIT is called during a debug session,
+	 * by default execution returns to the debugger, leaving the
+	 * debugger in a HALT state, similar to the state entered when
+	 * encountering a break.
+	 * In some use cases, it is useful to have SEMIHOSTING_SYS_EXIT
+	 * return normally, as any semihosting call, and do not break
+	 * to the debugger.
+	 * The standard allows this to happen, but the condition
+	 * to trigger it is a bit obscure ("by performing an RDI_Execute
 	 * request or equivalent").
-	 * To make the exit call return, enable this.
+	 *
+	 * To make the SEMIHOSTING_SYS_EXIT call return normally, enable
+	 * this variable via the dedicated command (default: disabled).
 	 */
 	bool has_resumable_exit;
 
 	/** The Target (hart) word size; 8 for 64-bits targets. */
 	size_t word_size_bytes;
 
-	/** The current semihosting operation (R0). */
+	/** The current semihosting operation (R0 on ARM). */
 	int op;
 
-	/** The current semihosting parameter (R1). */
+	/** The current semihosting parameter (R1 or ARM). */
 	uint64_t param;
 
 	/**

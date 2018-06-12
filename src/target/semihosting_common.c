@@ -138,6 +138,8 @@ int semihosting_common_init(struct target *target, void *setup,
 
 /**
  * Portable implementation of ARM semihosting calls.
+ * Performs the currently pending semihosting operation
+ * encoded in target->semihosting.
  */
 int semihosting_common(struct target *target)
 {
@@ -1441,7 +1443,7 @@ static void semihosting_set_field(struct target *target, uint64_t value,
 /* -------------------------------------------------------------------------
  * Common semihosting commands handlers. */
 
-__COMMAND_HANDLER(handle_common_arm_semihosting_command)
+__COMMAND_HANDLER(handle_common_semihosting_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
 
@@ -1483,7 +1485,7 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_command)
 }
 
 
-__COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command)
+__COMMAND_HANDLER(handle_common_semihosting_fileio_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
 
@@ -1498,6 +1500,11 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command)
 		return ERROR_FAIL;
 	}
 
+	if (!semihosting->is_active) {
+		command_print(CMD_CTX, "semihosting not yet enabled for current target");
+		return ERROR_FAIL;
+	}
+
 	if (CMD_ARGC > 0)
 		COMMAND_PARSE_ENABLE(CMD_ARGV[0], semihosting->is_fileio);
 
@@ -1508,7 +1515,7 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_fileio_command)
 	return ERROR_OK;
 }
 
-__COMMAND_HANDLER(handle_common_arm_semihosting_cmdline)
+__COMMAND_HANDLER(handle_common_semihosting_cmdline)
 {
 	struct target *target = get_current_target(CMD_CTX);
 	unsigned int i;
@@ -1541,7 +1548,7 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_cmdline)
 	return ERROR_OK;
 }
 
-__COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command)
+__COMMAND_HANDLER(handle_common_semihosting_resumable_exit_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
 
@@ -1553,6 +1560,11 @@ __COMMAND_HANDLER(handle_common_arm_semihosting_resumable_exit_command)
 	struct semihosting *semihosting = target->semihosting;
 	if (!semihosting) {
 		command_print(CMD_CTX, "semihosting not supported for current target");
+		return ERROR_FAIL;
+	}
+
+	if (!semihosting->is_active) {
+		command_print(CMD_CTX, "semihosting not yet enabled for current target");
 		return ERROR_FAIL;
 	}
 

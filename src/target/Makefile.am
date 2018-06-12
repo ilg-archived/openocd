@@ -220,6 +220,7 @@ RISCV_SRC = \
 	%D%/nds32_v3.h \
 	%D%/nds32_v3m.h \
 	%D%/nds32_aice.h \
+	%D%/semihosting_common.h \
 	%D%/stm8.h \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
