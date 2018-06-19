@@ -143,8 +143,7 @@ RISCV_SRC = \
 	%D%/riscv/riscv.c \
 	%D%/riscv/riscv_semihosting.c \
 	%D%/riscv/program.c \
-	%D%/riscv/batch.c \
-    %D%/riscv/riscv_semihosting.c
+	%D%/riscv/batch.c
 
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
