@@ -607,6 +607,9 @@ static int stm32l4_probe(struct flash_bank *bank)
 
 	/* set max flash size depending on family */
 	switch (device_id & 0xfff) {
+	case 0x470:
+		max_flash_size_in_kb = 2048;
+		break;
 	case 0x461:
 	case 0x415:
 		max_flash_size_in_kb = 1024;
