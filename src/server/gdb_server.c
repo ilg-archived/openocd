@@ -112,9 +112,7 @@ static char *gdb_port_next;
 static void gdb_log_callback(void *priv, const char *file, unsigned line,
 		const char *function, const char *string);
 
-#if BUILD_RISCV != 1
 static void gdb_sig_halted(struct connection *connection);
-#endif
 
 /* number of gdb connections, mainly to suppress gdb related debugging spam
  * in helper/log.c when no gdb connections are actually active */
@@ -724,7 +722,11 @@ static int gdb_output(struct command_context *context, const char *line)
 static void gdb_signal_reply(struct target *target, struct connection *connection)
 {
 	struct gdb_connection *gdb_connection = connection->priv;
+#if BUILD_RISCV == 1
+	char sig_reply[65];
+#else
 	char sig_reply[45];
+#endif
 	char stop_reason[20];
 	char current_thread[25];
 	int sig_reply_len;
@@ -769,8 +771,13 @@ static void gdb_signal_reply(struct target *target, struct connection *connectio
 		current_thread[0] = '\0';
 		if (target->rtos != NULL) {
 			struct target *ct;
+#if BUILD_RISCV == 1
+			snprintf(current_thread, sizeof(current_thread), "thread:%" PRIx64 ";",
+					target->rtos->current_thread);
+#else
 			snprintf(current_thread, sizeof(current_thread), "thread:%016" PRIx64 ";",
 					target->rtos->current_thread);
+#endif
 			target->rtos->current_threadid = target->rtos->current_thread;
 			target->rtos->gdb_target_for_threadid(connection, target->rtos->current_threadid, &ct);
 			if (!gdb_connection->ctrl_c)
@@ -938,6 +945,9 @@ static int gdb_new_connection(struct connection *connection)
 
 	target = get_target_from_connection(connection);
 	connection->priv = gdb_connection;
+#if BUILD_RISCV == 1
+	connection->cmd_ctx->current_target = target;
+#endif
 
 	/* initialize gdb connection information */
 	gdb_connection->buf_p = gdb_connection->buffer;
@@ -1361,7 +1371,12 @@ static int gdb_set_register_packet(struct connection *connection,
 	int chars = (DIV_ROUND_UP(reg_list[reg_num]->size, 8) * 2);
 
 	if ((unsigned int)chars != strlen(separator + 1)) {
+#if BUILD_RISCV == 1
+		LOG_ERROR("gdb sent %zu bits for a %d-bit register (%s)",
+				strlen(separator + 1) * 4, chars * 4, reg_list[reg_num]->name);
+#else
 		LOG_ERROR("gdb sent a packet with wrong register size");
+#endif
 		free(bin_buf);
 		return ERROR_SERVER_REMOTE_CLOSED;
 	}
@@ -3029,9 +3044,17 @@ static int gdb_v_packet(struct connection *connection,
 
 static int gdb_detach(struct connection *connection)
 {
+#if BUILD_RISCV == 1
+	/*
+	 * Only reply "OK" to GDB
+	 * it will close the connection and this will trigger a call to
+	 * gdb_connection_closed() that will in turn trigger the event
+	 * TARGET_EVENT_GDB_DETACH
+	 */
+#else
 	target_call_event_callbacks(get_target_from_connection(connection),
-		TARGET_EVENT_GDB_DETACH);
-
+			TARGET_EVENT_GDB_DETACH);
+#endif
 	return gdb_put_packet(connection, "OK", 2);
 }
 
@@ -3097,11 +3120,7 @@ static void gdb_log_callback(void *priv, const char *file, unsigned line,
 	gdb_output_con(connection, string);
 }
 
-#if BUILD_RISCV == 1
-void gdb_sig_halted(struct connection *connection)
-#else
 static void gdb_sig_halted(struct connection *connection)
-#endif
 {
 	char sig_reply[4];
 	snprintf(sig_reply, 4, "T%2.2x", 2);

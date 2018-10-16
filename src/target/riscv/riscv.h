@@ -36,6 +36,11 @@ enum riscv_halt_reason {
 };
 
 typedef struct {
+	struct target *target;
+	unsigned custom_number;
+} riscv_reg_info_t;
+
+typedef struct {
 	unsigned dtm_version;
 
 	struct command_context *cmd_ctx;
@@ -58,7 +63,9 @@ typedef struct {
 	uint64_t saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
 	bool valid_saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
 
-	/* The register cache points into here. */
+	/* OpenOCD's register cache points into here. This is not per-hart because
+	 * we just invalidate the entire cache when we change which hart is
+	 * selected. */
 	uint64_t reg_cache_values[RISCV_MAX_REGISTERS];
 
 	/* Single buffer that contains all register names, instead of calling
@@ -118,6 +125,11 @@ typedef struct {
 
 	int (*dmi_read)(struct target *target, uint32_t *value, uint32_t address);
 	int (*dmi_write)(struct target *target, uint32_t address, uint32_t value);
+
+	int (*test_sba_config_reg)(struct target *target, target_addr_t legal_address,
+			uint32_t num_words, target_addr_t illegal_address, bool run_sbbusyerror_test);
+
+	int (*test_compliance)(struct target *target);
 } riscv_info_t;
 
 /* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
@@ -125,9 +137,6 @@ extern int riscv_command_timeout_sec;
 
 /* Wall-clock timeout after reset. Settable via RISC-V Target commands.*/
 extern int riscv_reset_timeout_sec;
-
-extern bool riscv_use_scratch_ram;
-extern uint64_t riscv_scratch_ram_address;
 
 extern bool riscv_prefer_sba;
 
@@ -254,6 +263,7 @@ int riscv_remove_breakpoint(struct target *target,
 int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
 int riscv_remove_watchpoint(struct target *target,
 		struct watchpoint *watchpoint);
+int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_wp_address);
 
 int riscv_init_registers(struct target *target);
 
