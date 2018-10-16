@@ -2895,21 +2895,10 @@ static int gdb_v_packet(struct connection *connection,
 		char const *packet, int packet_size)
 {
 	struct gdb_connection *gdb_connection = connection->priv;
-#if BUILD_RISCV == 1
-	int result;
-
-	struct target *target = get_target_from_connection(connection);
-	if (target->rtos != NULL && target->rtos->gdb_v_packet != NULL) {
-		int out = target->rtos->gdb_v_packet(connection, packet, packet_size);
-		if (out != GDB_THREAD_PACKET_NOT_CONSUMED)
-			return out;
-	}
-#else
 	struct target *target;
 	int result;
 
 	target = get_target_from_connection(connection);
-#endif
 
 	if (strncmp(packet, "vCont", 5) == 0) {
 		bool handled;
@@ -3728,14 +3717,6 @@ int gdb_register_commands(struct command_context *cmd_ctx)
 	gdb_port_next = strdup("3333");
 	return register_commands(cmd_ctx, NULL, gdb_command_handlers);
 }
-
-#if BUILD_RISCV == 1
-void gdb_set_frontend_state_running(struct connection *connection)
-{
-	struct gdb_connection *gdb_con = connection->priv;
-	gdb_con->frontend_state = TARGET_RUNNING;
-}
-#endif
 
 void gdb_service_free(void)
 {
