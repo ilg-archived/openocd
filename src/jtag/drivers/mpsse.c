@@ -22,7 +22,6 @@
 
 #include "mpsse.h"
 #include "helper/log.h"
-#include "helper/time_support.h"
 #include <libusb.h>
 
 /* Compatibility define for older libusb-1.0 */
@@ -893,7 +892,6 @@ int mpsse_flush(struct mpsse_ctx *ctx)
 	}
 
 	/* Polling loop, more or less taken from libftdi */
-	int64_t start = timeval_ms();
 	while (!write_result.done || !read_result.done) {
 		struct timeval timeout_usb;
 
@@ -915,11 +913,6 @@ int mpsse_flush(struct mpsse_ctx *ctx)
 				if (retval != LIBUSB_SUCCESS)
 					break;
 			}
-		}
-
-		if (timeval_ms() - start > 2000) {
-			LOG_ERROR("Timed out handling USB events in mpsse_flush().");
-			break;
 		}
 	}
 
