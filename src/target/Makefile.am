@@ -23,6 +23,7 @@ noinst_LTLIBRARIES += %D%/libtarget.la
 	$(NDS32_SRC) \
 	$(STM8_SRC) \
 	$(INTEL_IA32_SRC) \
+	$(ESIRISC_SRC) \
 	%D%/avrt.c \
 	%D%/dsp563xx.c \
 	%D%/dsp563xx_once.c \
@@ -75,7 +76,8 @@ ARMV7_SRC = \
 	%D%/cortex_m.c \
 	%D%/armv7a.c \
 	%D%/cortex_a.c \
-	%D%/ls1_sap.c
+	%D%/ls1_sap.c \
+	%D%/mem_ap.c
 
 ARMV8_SRC = \
 	%D%/armv8_dpm.c \
@@ -137,6 +139,10 @@ INTEL_IA32_SRC = \
 	%D%/quark_d20xx.c \
 	%D%/lakemont.c \
 	%D%/x86_32_common.c
+
+ESIRISC_SRC = \
+	%D%/esirisc.c \
+	%D%/esirisc_jtag.c
 
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
@@ -217,7 +223,10 @@ INTEL_IA32_SRC = \
 	%D%/stm8.h \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
-	%D%/arm_cti.h
+	%D%/arm_cti.h \
+	%D%/esirisc.h \
+	%D%/esirisc_jtag.h \
+	%D%/esirisc_regs.h
 
 include %D%/openrisc/Makefile.am
 include %D%/riscv/Makefile.am

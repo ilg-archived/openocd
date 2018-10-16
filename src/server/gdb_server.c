@@ -945,9 +945,7 @@ static int gdb_new_connection(struct connection *connection)
 
 	target = get_target_from_connection(connection);
 	connection->priv = gdb_connection;
-#if BUILD_RISCV == 1
 	connection->cmd_ctx->current_target = target;
-#endif
 
 	/* initialize gdb connection information */
 	gdb_connection->buf_p = gdb_connection->buffer;
@@ -1190,8 +1188,11 @@ static int gdb_get_registers_packet(struct connection *connection,
 	if (retval != ERROR_OK)
 		return gdb_error(connection, retval);
 
-	for (i = 0; i < reg_list_size; i++)
+	for (i = 0; i < reg_list_size; i++) {
+		if (reg_list[i] == NULL || reg_list[i]->exist == false)
+			continue;
 		reg_packet_size += DIV_ROUND_UP(reg_list[i]->size, 8) * 2;
+	}
 
 	assert(reg_packet_size > 0);
 
@@ -1202,6 +1203,8 @@ static int gdb_get_registers_packet(struct connection *connection,
 	reg_packet_p = reg_packet;
 
 	for (i = 0; i < reg_list_size; i++) {
+		if (reg_list[i] == NULL || reg_list[i]->exist == false)
+			continue;
 		if (!reg_list[i]->valid) {
 			retval = reg_list[i]->type->get(reg_list[i]);
 			if (retval != ERROR_OK && gdb_report_register_access_error) {
@@ -1307,6 +1310,9 @@ static int gdb_get_register_packet(struct connection *connection,
 	LOG_DEBUG("-");
 #endif
 
+	if ((target->rtos != NULL) && (ERROR_OK == rtos_get_gdb_reg(connection, reg_num)))
+		return ERROR_OK;
+
 	retval = target_get_gdb_reg_list(target, &reg_list, &reg_list_size,
 			REG_CLASS_ALL);
 	if (retval != ERROR_OK)
@@ -1371,12 +1377,8 @@ static int gdb_set_register_packet(struct connection *connection,
 	int chars = (DIV_ROUND_UP(reg_list[reg_num]->size, 8) * 2);
 
 	if ((unsigned int)chars != strlen(separator + 1)) {
-#if BUILD_RISCV == 1
 		LOG_ERROR("gdb sent %zu bits for a %d-bit register (%s)",
 				strlen(separator + 1) * 4, chars * 4, reg_list[reg_num]->name);
-#else
-		LOG_ERROR("gdb sent a packet with wrong register size");
-#endif
 		free(bin_buf);
 		return ERROR_SERVER_REMOTE_CLOSED;
 	}
@@ -2203,6 +2205,7 @@ static int gdb_generate_target_description(struct target *target, char **tdesc_o
 	int retval = ERROR_OK;
 	struct reg **reg_list = NULL;
 	int reg_list_size;
+	char const *architecture;
 	char const **features = NULL;
 	char const **arch_defined_types = NULL;
 	int feature_list_size = 0;
@@ -2243,6 +2246,12 @@ static int gdb_generate_target_description(struct target *target, char **tdesc_o
 			"<?xml version=\"1.0\"?>\n"
 			"<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
 			"<target version=\"1.0\">\n");
+
+	/* generate architecture element if supported by target */
+	architecture = target_get_gdb_arch(target);
+	if (architecture != NULL)
+		xml_printf(&retval, &tdesc, &pos, &size,
+				"<architecture>%s</architecture>\n", architecture);
 
 	/* generate target description according to register list */
 	if (features != NULL) {
@@ -2393,6 +2402,8 @@ static int gdb_target_description_supported(struct target *target, int *supporte
 	char const **features = NULL;
 	int feature_list_size = 0;
 
+	char const *architecture = target_get_gdb_arch(target);
+
 	retval = target_get_gdb_reg_list(target, &reg_list,
 			&reg_list_size, REG_CLASS_ALL);
 	if (retval != ERROR_OK) {
@@ -2414,7 +2425,7 @@ static int gdb_target_description_supported(struct target *target, int *supporte
 	}
 
 	if (supported) {
-		if (feature_list_size)
+		if (architecture || feature_list_size)
 			*supported = 1;
 		else
 			*supported = 0;
@@ -3044,17 +3055,12 @@ static int gdb_v_packet(struct connection *connection,
 
 static int gdb_detach(struct connection *connection)
 {
-#if BUILD_RISCV == 1
 	/*
 	 * Only reply "OK" to GDB
 	 * it will close the connection and this will trigger a call to
 	 * gdb_connection_closed() that will in turn trigger the event
 	 * TARGET_EVENT_GDB_DETACH
 	 */
-#else
-	target_call_event_callbacks(get_target_from_connection(connection),
-			TARGET_EVENT_GDB_DETACH);
-#endif
 	return gdb_put_packet(connection, "OK", 2);
 }
 
@@ -3404,6 +3410,8 @@ static int gdb_target_start(struct target *target, const char *port)
 	if (NULL == gdb_service)
 		return -ENOMEM;
 
+	LOG_DEBUG("starting gdb server for %s on %s", target_name(target), port);
+
 	gdb_service->target = target;
 	gdb_service->core[0] = -1;
 	gdb_service->core[1] = -1;
@@ -3429,16 +3437,36 @@ static int gdb_target_start(struct target *target, const char *port)
 
 static int gdb_target_add_one(struct target *target)
 {
+	/*  one gdb instance per smp list */
+	if ((target->smp) && (target->gdb_service))
+		return ERROR_OK;
+
+	/* skip targets that cannot handle a gdb connections (e.g. mem_ap) */
+	if (!target_supports_gdb_connection(target)) {
+		LOG_DEBUG("skip gdb server for target %s", target_name(target));
+		return ERROR_OK;
+	}
+
+	if (target->gdb_port_override) {
+		if (strcmp(target->gdb_port_override, "disabled") == 0) {
+			LOG_INFO("gdb port disabled");
+			return ERROR_OK;
+		}
+		return gdb_target_start(target, target->gdb_port_override);
+	}
+
 	if (strcmp(gdb_port, "disabled") == 0) {
 		LOG_INFO("gdb port disabled");
 		return ERROR_OK;
 	}
 
-	/*  one gdb instance per smp list */
-	if ((target->smp) && (target->gdb_service))
-		return ERROR_OK;
 	int retval = gdb_target_start(target, gdb_port_next);
 	if (retval == ERROR_OK) {
+		/* save the port number so can be queried with
+		 * $target_name cget -gdb-port
+		 */
+		target->gdb_port_override = strdup(gdb_port_next);
+
 		long portnumber;
 		/* If we can parse the port number
 		 * then we increment the port number for the next target.
@@ -3463,11 +3491,6 @@ static int gdb_target_add_one(struct target *target)
 
 int gdb_target_add_all(struct target *target)
 {
-	if (strcmp(gdb_port, "disabled") == 0) {
-		LOG_INFO("gdb server disabled");
-		return ERROR_OK;
-	}
-
 	if (NULL == target) {
 		LOG_WARNING("gdb services need one or more targets defined");
 		return ERROR_OK;
