@@ -52,9 +52,9 @@
 #if defined(BUILD_BRANDING)
 
 #if INTPTR_MAX == INT32_MAX
-#define OPENOCD_WORDSIZE "32-bits "
+#define OPENOCD_WORDSIZE "32-bit "
 #elif INTPTR_MAX == INT64_MAX
-#define OPENOCD_WORDSIZE "64-bits "
+#define OPENOCD_WORDSIZE "64-bit "
 #else
 #define OPENOCD_WORDSIZE ""
 #endif
