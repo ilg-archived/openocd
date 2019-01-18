@@ -36,11 +36,6 @@ enum riscv_halt_reason {
 };
 
 typedef struct {
-	struct target *target;
-	unsigned custom_number;
-} riscv_reg_info_t;
-
-typedef struct {
 	unsigned dtm_version;
 
 	struct command_context *cmd_ctx;
@@ -125,11 +120,6 @@ typedef struct {
 
 	int (*dmi_read)(struct target *target, uint32_t *value, uint32_t address);
 	int (*dmi_write)(struct target *target, uint32_t address, uint32_t value);
-
-	int (*test_sba_config_reg)(struct target *target, target_addr_t legal_address,
-			uint32_t num_words, target_addr_t illegal_address, bool run_sbbusyerror_test);
-
-	int (*test_compliance)(struct target *target);
 } riscv_info_t;
 
 /* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
@@ -263,7 +253,6 @@ int riscv_remove_breakpoint(struct target *target,
 int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
 int riscv_remove_watchpoint(struct target *target,
 		struct watchpoint *watchpoint);
-int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_wp_address);
 
 int riscv_init_registers(struct target *target);
 

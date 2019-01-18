@@ -36,9 +36,6 @@ extern struct rtos_type embKernel_rtos;
 extern struct rtos_type mqx_rtos;
 extern struct rtos_type uCOS_III_rtos;
 extern struct rtos_type nuttx_rtos;
-#if BUILD_RISCV == 1
-extern struct rtos_type riscv_rtos;
-#endif
 
 static struct rtos_type *rtos_types[] = {
 	&ThreadX_rtos,
@@ -50,9 +47,6 @@ static struct rtos_type *rtos_types[] = {
 	&mqx_rtos,
 	&uCOS_III_rtos,
 	&nuttx_rtos,
-#if BUILD_RISCV == 1
-	&riscv_rtos,
-#endif
 	NULL
 };
 
@@ -89,9 +83,6 @@ static int os_alloc(struct target *target, struct rtos_type *ostype)
 
 	/* RTOS drivers can override the packet handler in _create(). */
 	os->gdb_thread_packet = rtos_thread_packet;
-#if BUILD_RISCV == 1
-	os->gdb_v_packet = NULL;
-#endif
 	os->gdb_target_for_threadid = rtos_target_for_threadid;
 
 	return JIM_OK;

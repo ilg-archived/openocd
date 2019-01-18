@@ -722,11 +722,7 @@ static int gdb_output(struct command_context *context, const char *line)
 static void gdb_signal_reply(struct target *target, struct connection *connection)
 {
 	struct gdb_connection *gdb_connection = connection->priv;
-#if BUILD_RISCV == 1
-	char sig_reply[65];
-#else
 	char sig_reply[45];
-#endif
 	char stop_reason[20];
 	char current_thread[25];
 	int sig_reply_len;
@@ -771,13 +767,8 @@ static void gdb_signal_reply(struct target *target, struct connection *connectio
 		current_thread[0] = '\0';
 		if (target->rtos != NULL) {
 			struct target *ct;
-#if BUILD_RISCV == 1
-			snprintf(current_thread, sizeof(current_thread), "thread:%" PRIx64 ";",
-					target->rtos->current_thread);
-#else
 			snprintf(current_thread, sizeof(current_thread), "thread:%016" PRIx64 ";",
 					target->rtos->current_thread);
-#endif
 			target->rtos->current_threadid = target->rtos->current_thread;
 			target->rtos->gdb_target_for_threadid(connection, target->rtos->current_threadid, &ct);
 			if (!gdb_connection->ctrl_c)
@@ -3717,14 +3708,6 @@ int gdb_register_commands(struct command_context *cmd_ctx)
 	gdb_port_next = strdup("3333");
 	return register_commands(cmd_ctx, NULL, gdb_command_handlers);
 }
-
-#if BUILD_RISCV == 1
-void gdb_set_frontend_state_running(struct connection *connection)
-{
-	struct gdb_connection *gdb_con = connection->priv;
-	gdb_con->frontend_state = TARGET_RUNNING;
-}
-#endif
 
 void gdb_service_free(void)
 {

@@ -1408,6 +1408,12 @@ static int strict_step(struct target *target, bool announce)
 
 	LOG_DEBUG("enter");
 
+	struct breakpoint *breakpoint = target->breakpoints;
+	while (breakpoint) {
+		riscv_remove_breakpoint(target, breakpoint);
+		breakpoint = breakpoint->next;
+	}
+
 	struct watchpoint *watchpoint = target->watchpoints;
 	while (watchpoint) {
 		riscv_remove_watchpoint(target, watchpoint);
@@ -1417,6 +1423,12 @@ static int strict_step(struct target *target, bool announce)
 	int result = full_step(target, announce);
 	if (result != ERROR_OK)
 		return result;
+
+	breakpoint = target->breakpoints;
+	while (breakpoint) {
+		riscv_add_breakpoint(target, breakpoint);
+		breakpoint = breakpoint->next;
+	}
 
 	watchpoint = target->watchpoints;
 	while (watchpoint) {
@@ -1838,7 +1850,7 @@ static int handle_halt(struct target *target, bool announce)
 			target->debug_reason = DBG_REASON_BREAKPOINT;
 			break;
 		case DCSR_CAUSE_HWBP:
-			target->debug_reason = DBG_REASON_WATCHPOINT;
+			target->debug_reason = DBG_REASON_WPTANDBKPT;
 			/* If we halted because of a data trigger, gdb doesn't know to do
 			 * the disable-breakpoints-step-enable-breakpoints dance. */
 			info->need_strict_step = true;

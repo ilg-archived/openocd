@@ -107,9 +107,7 @@ extern struct target_type or1k_target;
 extern struct target_type quark_x10xx_target;
 extern struct target_type quark_d20xx_target;
 extern struct target_type stm8_target;
-#if BUILD_RISCV == 1
 extern struct target_type riscv_target;
-#endif
 extern struct target_type mem_ap_target;
 extern struct target_type esirisc_target;
 
@@ -144,9 +142,7 @@ static struct target_type *target_types[] = {
 	&quark_x10xx_target,
 	&quark_d20xx_target,
 	&stm8_target,
-#if BUILD_RISCV == 1
 	&riscv_target,
-#endif
 	&mem_ap_target,
 	&esirisc_target,
 #if BUILD_TARGET64
