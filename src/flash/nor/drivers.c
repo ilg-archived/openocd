@@ -42,9 +42,7 @@ extern struct flash_driver esirisc_flash;
 extern struct flash_driver faux_flash;
 extern struct flash_driver fm3_flash;
 extern struct flash_driver fm4_flash;
-#if BUILD_RISCV == 1
 extern struct flash_driver fespi_flash;
-#endif
 extern struct flash_driver jtagspi_flash;
 extern struct flash_driver kinetis_flash;
 extern struct flash_driver kinetis_ke_flash;
@@ -80,6 +78,7 @@ extern struct flash_driver str9x_flash;
 extern struct flash_driver str9xpec_flash;
 extern struct flash_driver tms470_flash;
 extern struct flash_driver virtual_flash;
+extern struct flash_driver w600_flash;
 extern struct flash_driver xcf_flash;
 extern struct flash_driver xmc1xxx_flash;
 extern struct flash_driver xmc4xxx_flash;
@@ -111,9 +110,7 @@ static struct flash_driver *flash_drivers[] = {
 	&faux_flash,
 	&fm3_flash,
 	&fm4_flash,
-#if BUILD_RISCV == 1
 	&fespi_flash,
-#endif
 	&jtagspi_flash,
 	&kinetis_flash,
 	&kinetis_ke_flash,
@@ -152,6 +149,7 @@ static struct flash_driver *flash_drivers[] = {
 	&xcf_flash,
 	&xmc1xxx_flash,
 	&xmc4xxx_flash,
+	&w600_flash,
 	NULL,
 };
 

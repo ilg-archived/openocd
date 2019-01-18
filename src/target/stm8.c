@@ -1189,6 +1189,11 @@ static int stm8_write_core_reg(struct target *target, unsigned int num)
 	return ERROR_OK;
 }
 
+static const char *stm8_get_gdb_arch(struct target *target)
+{
+	return "stm8";
+}
+
 static int stm8_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 		int *reg_list_size, enum target_register_class reg_class)
 {
@@ -1800,6 +1805,7 @@ static int stm8_blank_check_memory(struct target *target,
 	destroy_mem_param(&mem_params[0]);
 	destroy_mem_param(&mem_params[1]);
 	destroy_reg_param(&reg_params[0]);
+	destroy_reg_param(&reg_params[1]);
 
 	target_free_working_area(target, erase_check_algorithm);
 
@@ -2199,6 +2205,7 @@ struct target_type stm8_target = {
 	.assert_reset = stm8_reset_assert,
 	.deassert_reset = stm8_reset_deassert,
 
+	.get_gdb_arch = stm8_get_gdb_arch,
 	.get_gdb_reg_list = stm8_get_gdb_reg_list,
 
 	.read_memory = stm8_read_memory,

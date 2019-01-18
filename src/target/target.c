@@ -521,9 +521,7 @@ struct target *get_target_by_num(int num)
 
 struct target *get_current_target(struct command_context *cmd_ctx)
 {
-	struct target *target = cmd_ctx->current_target_override
-		? cmd_ctx->current_target_override
-		: cmd_ctx->current_target;
+	struct target *target = get_current_target_or_null(cmd_ctx);
 
 	if (target == NULL) {
 		LOG_ERROR("BUG: current_target out of bounds");
@@ -531,6 +529,13 @@ struct target *get_current_target(struct command_context *cmd_ctx)
 	}
 
 	return target;
+}
+
+struct target *get_current_target_or_null(struct command_context *cmd_ctx)
+{
+	return cmd_ctx->current_target_override
+		? cmd_ctx->current_target_override
+		: cmd_ctx->current_target;
 }
 
 int target_poll(struct target *target)
@@ -1051,6 +1056,9 @@ int target_run_flash_async_algorithm(struct target *target,
 		retval = target_write_u32(target, wp_addr, wp);
 		if (retval != ERROR_OK)
 			break;
+
+		/* Avoid GDB timeouts */
+		keep_alive();
 	}
 
 	if (retval != ERROR_OK) {
@@ -1915,6 +1923,65 @@ int target_free_working_area(struct target *target, struct working_area *area)
 	return target_free_working_area_restore(target, area, 1);
 }
 
+/* free resources and restore memory, if restoring memory fails,
+ * free up resources anyway
+ */
+static void target_free_all_working_areas_restore(struct target *target, int restore)
+{
+	struct working_area *c = target->working_areas;
+
+	LOG_DEBUG("freeing all working areas");
+
+	/* Loop through all areas, restoring the allocated ones and marking them as free */
+	while (c) {
+		if (!c->free) {
+			if (restore)
+				target_restore_working_area(target, c);
+			c->free = true;
+			*c->user = NULL; /* Same as above */
+			c->user = NULL;
+		}
+		c = c->next;
+	}
+
+	/* Run a merge pass to combine all areas into one */
+	target_merge_working_areas(target);
+
+	print_wa_layout(target);
+}
+
+void target_free_all_working_areas(struct target *target)
+{
+	target_free_all_working_areas_restore(target, 1);
+
+	/* Now we have none or only one working area marked as free */
+	if (target->working_areas) {
+		/* Free the last one to allow on-the-fly moving and resizing */
+		free(target->working_areas->backup);
+		free(target->working_areas);
+		target->working_areas = NULL;
+	}
+}
+
+/* Find the largest number of bytes that can be allocated */
+uint32_t target_get_working_area_avail(struct target *target)
+{
+	struct working_area *c = target->working_areas;
+	uint32_t max_size = 0;
+
+	if (c == NULL)
+		return target->working_area_size;
+
+	while (c) {
+		if (c->free && max_size < c->size)
+			max_size = c->size;
+
+		c = c->next;
+	}
+
+	return max_size;
+}
+
 static void target_destroy(struct target *target)
 {
 	if (target->type->deinit_target)
@@ -1934,11 +2001,6 @@ static void target_destroy(struct target *target)
 	}
 
 	target_free_all_working_areas(target);
-	/* Now we have none or only one working area marked as free */
-	if (target->working_areas) {
-		free(target->working_areas->backup);
-		free(target->working_areas);
-	}
 
 	/* release the targets SMP list */
 	if (target->smp) {
@@ -1987,57 +2049,6 @@ void target_quit(void)
 	}
 
 	all_targets = NULL;
-}
-
-/* free resources and restore memory, if restoring memory fails,
- * free up resources anyway
- */
-static void target_free_all_working_areas_restore(struct target *target, int restore)
-{
-	struct working_area *c = target->working_areas;
-
-	LOG_DEBUG("freeing all working areas");
-
-	/* Loop through all areas, restoring the allocated ones and marking them as free */
-	while (c) {
-		if (!c->free) {
-			if (restore)
-				target_restore_working_area(target, c);
-			c->free = true;
-			*c->user = NULL; /* Same as above */
-			c->user = NULL;
-		}
-		c = c->next;
-	}
-
-	/* Run a merge pass to combine all areas into one */
-	target_merge_working_areas(target);
-
-	print_wa_layout(target);
-}
-
-void target_free_all_working_areas(struct target *target)
-{
-	target_free_all_working_areas_restore(target, 1);
-}
-
-/* Find the largest number of bytes that can be allocated */
-uint32_t target_get_working_area_avail(struct target *target)
-{
-	struct working_area *c = target->working_areas;
-	uint32_t max_size = 0;
-
-	if (c == NULL)
-		return target->working_area_size;
-
-	while (c) {
-		if (c->free && max_size < c->size)
-			max_size = c->size;
-
-		c = c->next;
-	}
-
-	return max_size;
 }
 
 int target_arch_state(struct target *target)
