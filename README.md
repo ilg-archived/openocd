@@ -28,3 +28,19 @@ some of them interfered with other targets.
 
 See the [releases](https://gnu-mcu-eclipse.github.io/openocd/releases/) page.
 Binaries for most platforms can be downloaded from [GitHub Releases](https://github.com/gnu-mcu-eclipse/openocd/releases).
+
+
+## Download analytics
+
+* GitHub [gnu-mcu-eclipse/openocd.git](https://github.com/gnu-mcu-eclipse/openocd/)
+  * latest release
+[![Github All Releases](https://img.shields.io/github/downloads/gnu-mcu-eclipse/openocd/latest/total.svg)](https://github.com/gnu-mcu-eclipse/openocd/releases/)
+  * all releases [![Github All Releases](https://img.shields.io/github/downloads/gnu-mcu-eclipse/openocd/total.svg)](https://github.com/gnu-mcu-eclipse/openocd/releases/)
+* xPack [@gnu-mcu-eclipse/openocd](https://github.com/gnu-mcu-eclipse/openocd-xpack/)
+  * latest release, per month 
+[![npm (scoped)](https://img.shields.io/npm/v/@gnu-mcu-eclipse/openocd.svg)](https://www.npmjs.com/package/@gnu-mcu-eclipse/openocd/)
+[![npm](https://img.shields.io/npm/dm/@gnu-mcu-eclipse/openocd.svg)](https://www.npmjs.com/package/@gnu-mcu-eclipse/openocd/)
+  * all releases [![npm](https://img.shields.io/npm/dt/@gnu-mcu-eclipse/openocd.svg)](https://www.npmjs.com/package/@gnu-mcu-eclipse/openocd/)
+* [individual file counters](https://www.somsubhra.com/github-release-stats/?username=gnu-mcu-eclipse&repository=openocd) (grouped per release)
+  
+Credits to [Shields IO](https://shields.io) and [Somsubhra/github-release-stats](https://github.com/Somsubhra/github-release-stats).
