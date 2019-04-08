@@ -56,19 +56,19 @@ Copy/paste the build report at the end of the post as:
 ## Checksums
 The SHA-256 hashes for the files are:
 
-6d1baccebc2dd8667556b61e5b93aa83587d0d52430235bb954b364e5cc903e3 ?
+6d1baccebc2dd8667556b61e5b93aa83587d0d52430235bb954b364e5cc903e3 
 gnu-mcu-eclipse-openocd-0.10.0-8-20180512-1921-centos32.tgz
 
-44775b886139ae761b3ceca630651efeced43cbd7ad5683cdb70c5a4e6d83119 ?
+44775b886139ae761b3ceca630651efeced43cbd7ad5683cdb70c5a4e6d83119 
 gnu-mcu-eclipse-openocd-0.10.0-8-20180512-1921-centos64.tgz
 
-f3fff5c6b72b680a7995d285f442185bff83e3a31842fa2a4f21c5a23dee24f3 ?
+f3fff5c6b72b680a7995d285f442185bff83e3a31842fa2a4f21c5a23dee24f3 
 gnu-mcu-eclipse-openocd-0.10.0-8-20180512-1921-macos.tgz
 
-7a2bc7b751127535b967a73215788d3a66633e2b33e4edd02bb9d70a1cde7ed9 ?
+7a2bc7b751127535b967a73215788d3a66633e2b33e4edd02bb9d70a1cde7ed9 
 gnu-mcu-eclipse-openocd-0.10.0-8-20180512-1921-win32.zip
 
-1be649d32a2e0895c84da6570d427dee2ed89f48ca6a3547d0d08e311c536ad4 ?
+1be649d32a2e0895c84da6570d427dee2ed89f48ca6a3547d0d08e311c536ad4 
 gnu-mcu-eclipse-openocd-0.10.0-8-20180512-1921-win64.zip
 ```
 
