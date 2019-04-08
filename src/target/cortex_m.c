@@ -265,7 +265,7 @@ static int cortex_m_endreset_event(struct target *target)
 		return retval;
 	}
 
-	cortex_m->fpb_enabled = 1;
+	cortex_m->fpb_enabled = true;
 
 	/* Restore FPB registers */
 	for (i = 0; i < cortex_m->fp_num_code + cortex_m->fp_num_lit; i++) {
@@ -510,7 +510,10 @@ static int cortex_m_poll(struct target *target)
 	}
 
 	if (cortex_m->dcb_dhcsr & S_RESET_ST) {
-		target->state = TARGET_RESET;
+		if (target->state != TARGET_RESET) {
+			target->state = TARGET_RESET;
+			LOG_INFO("%s: external reset detected", target_name(target));
+		}
 		return ERROR_OK;
 	}
 
@@ -874,10 +877,17 @@ static int cortex_m_step(struct target *target, int current,
 			else {
 
 				/* Set a temporary break point */
-				if (breakpoint)
+				if (breakpoint) {
 					retval = cortex_m_set_breakpoint(target, breakpoint);
-				else
-					retval = breakpoint_add(target, pc_value, 2, BKPT_HARD);
+				} else {
+					enum breakpoint_type type = BKPT_HARD;
+					if (cortex_m->fp_rev == 0 && pc_value > 0x1FFFFFFF) {
+						/* FPB rev.1 cannot handle such addr, try BKPT instr */
+						type = BKPT_SOFT;
+					}
+					retval = breakpoint_add(target, pc_value, 2, type);
+				}
+
 				bool tmp_bp_set = (retval == ERROR_OK);
 
 				/* No more breakpoints left, just do a step */
@@ -1154,7 +1164,7 @@ int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint
 			fp_num++;
 		if (fp_num >= cortex_m->fp_num_code) {
 			LOG_ERROR("Can not find free FPB Comparator!");
-			return ERROR_FAIL;
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 		breakpoint->set = fp_num + 1;
 		fpcr_value = breakpoint->address | 1;
@@ -1170,7 +1180,7 @@ int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint
 			LOG_ERROR("Unhandled Cortex-M Flash Patch Breakpoint architecture revision");
 			return ERROR_FAIL;
 		}
-		comparator_list[fp_num].used = 1;
+		comparator_list[fp_num].used = true;
 		comparator_list[fp_num].fpcr_value = fpcr_value;
 		target_write_u32(target, comparator_list[fp_num].fpcr_address,
 			comparator_list[fp_num].fpcr_value);
@@ -1185,7 +1195,7 @@ int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint
 				return retval;
 			}
 
-			cortex_m->fpb_enabled = 1;
+			cortex_m->fpb_enabled = true;
 		}
 	} else if (breakpoint->type == BKPT_SOFT) {
 		uint8_t code[4];
@@ -1244,23 +1254,17 @@ int cortex_m_unset_breakpoint(struct target *target, struct breakpoint *breakpoi
 			LOG_DEBUG("Invalid FP Comparator number in breakpoint");
 			return ERROR_OK;
 		}
-		comparator_list[fp_num].used = 0;
+		comparator_list[fp_num].used = false;
 		comparator_list[fp_num].fpcr_value = 0;
 		target_write_u32(target, comparator_list[fp_num].fpcr_address,
 			comparator_list[fp_num].fpcr_value);
 	} else {
 		/* restore original instruction (kept in target endianness) */
-		if (breakpoint->length == 4) {
-			retval = target_write_memory(target, breakpoint->address & 0xFFFFFFFE, 4, 1,
+		retval = target_write_memory(target, breakpoint->address & 0xFFFFFFFE,
+					breakpoint->length, 1,
 					breakpoint->orig_instr);
-			if (retval != ERROR_OK)
-				return retval;
-		} else {
-			retval = target_write_memory(target, breakpoint->address & 0xFFFFFFFE, 2, 1,
-					breakpoint->orig_instr);
-			if (retval != ERROR_OK)
-				return retval;
-		}
+		if (retval != ERROR_OK)
+			return retval;
 	}
 	breakpoint->set = false;
 
@@ -1269,13 +1273,6 @@ int cortex_m_unset_breakpoint(struct target *target, struct breakpoint *breakpoi
 
 int cortex_m_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
-	struct cortex_m_common *cortex_m = target_to_cm(target);
-
-	if ((breakpoint->type == BKPT_HARD) && (cortex_m->fp_code_available < 1)) {
-		LOG_INFO("no flash patch comparator unit available for hardware breakpoint");
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-
 	if (breakpoint->length == 3) {
 		LOG_DEBUG("Using a two byte breakpoint for 32bit Thumb-2 request");
 		breakpoint->length = 2;
@@ -1286,29 +1283,15 @@ int cortex_m_add_breakpoint(struct target *target, struct breakpoint *breakpoint
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
-	if (breakpoint->type == BKPT_HARD)
-		cortex_m->fp_code_available--;
-
 	return cortex_m_set_breakpoint(target, breakpoint);
 }
 
 int cortex_m_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
-	struct cortex_m_common *cortex_m = target_to_cm(target);
+	if (!breakpoint->set)
+		return ERROR_OK;
 
-	/* REVISIT why check? FPB can be updated with core running ... */
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
-	if (breakpoint->set)
-		cortex_m_unset_breakpoint(target, breakpoint);
-
-	if (breakpoint->type == BKPT_HARD)
-		cortex_m->fp_code_available++;
-
-	return ERROR_OK;
+	return cortex_m_unset_breakpoint(target, breakpoint);
 }
 
 int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint)
@@ -1341,7 +1324,7 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 		LOG_ERROR("Can not find free DWT Comparator");
 		return ERROR_FAIL;
 	}
-	comparator->used = 1;
+	comparator->used = true;
 	watchpoint->set = dwt_num + 1;
 
 	comparator->comp = watchpoint->address;
@@ -1398,7 +1381,7 @@ int cortex_m_unset_watchpoint(struct target *target, struct watchpoint *watchpoi
 	}
 
 	comparator = cortex_m->dwt_comparator_list + dwt_num;
-	comparator->used = 0;
+	comparator->used = false;
 	comparator->function = 0;
 	target_write_u32(target, comparator->dwt_comparator_address + 8,
 		comparator->function);
@@ -2117,7 +2100,6 @@ int cortex_m_examine(struct target *target)
 		/* bits [14:12] and [7:4] */
 		cortex_m->fp_num_code = ((fpcr >> 8) & 0x70) | ((fpcr >> 4) & 0xF);
 		cortex_m->fp_num_lit = (fpcr >> 8) & 0xF;
-		cortex_m->fp_code_available = cortex_m->fp_num_code;
 		/* Detect flash patch revision, see RM DDI 0403E.b page C1-817.
 		   Revision is zero base, fp_rev == 1 means Rev.2 ! */
 		cortex_m->fp_rev = (fpcr >> 28) & 0xf;
@@ -2259,21 +2241,27 @@ static int cortex_m_init_arch_info(struct target *target,
 	armv7m->load_core_reg_u32 = cortex_m_load_core_reg_u32;
 	armv7m->store_core_reg_u32 = cortex_m_store_core_reg_u32;
 
-	target_register_timer_callback(cortex_m_handle_target_request, 1, 1, target);
+	target_register_timer_callback(cortex_m_handle_target_request, 1,
+		TARGET_TIMER_TYPE_PERIODIC, target);
 
 	return ERROR_OK;
 }
 
 static int cortex_m_target_create(struct target *target, Jim_Interp *interp)
 {
-	struct cortex_m_common *cortex_m = calloc(1, sizeof(struct cortex_m_common));
-	cortex_m->common_magic = CORTEX_M_COMMON_MAGIC;
 	struct adiv5_private_config *pc;
 
 	pc = (struct adiv5_private_config *)target->private_config;
 	if (adiv5_verify_config(pc) != ERROR_OK)
 		return ERROR_FAIL;
 
+	struct cortex_m_common *cortex_m = calloc(1, sizeof(struct cortex_m_common));
+	if (cortex_m == NULL) {
+		LOG_ERROR("No memory creating target");
+		return ERROR_FAIL;
+	}
+
+	cortex_m->common_magic = CORTEX_M_COMMON_MAGIC;
 	cortex_m->apsel = pc->ap_num;
 
 	cortex_m_init_arch_info(target, cortex_m, pc->dap);

@@ -1177,9 +1177,10 @@ static const struct command_registration str9xpec_config_command_handlers[] = {
 	},
 	{
 		.name = "part_id",
+		.usage = "<bank>",
 		.handler = str9xpec_handle_part_id_command,
 		.mode = COMMAND_EXEC,
-		.help = "print part id of str9xpec flash bank <num>",
+		.help = "print part id of str9xpec flash bank",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1195,7 +1196,7 @@ static const struct command_registration str9xpec_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver str9xpec_flash = {
+const struct flash_driver str9xpec_flash = {
 	.name = "str9xpec",
 	.commands = str9xpec_command_handlers,
 	.flash_bank_command = str9xpec_flash_bank_command,

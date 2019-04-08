@@ -103,7 +103,7 @@
 #define  offset_EFC_FSR   8
 #define  offset_EFC_FRR   12
 
-extern struct flash_driver at91sam4_flash;
+extern const struct flash_driver at91sam4_flash;
 
 static float _tomhz(uint32_t freq_hz)
 {
@@ -2598,7 +2598,7 @@ static int sam4_info(struct flash_bank *bank, char *buf, int buf_size)
 	}
 
 	snprintf(buf, buf_size,
-		"%s bank %d: %d kB at 0x%08" PRIx32,
+		"%s bank %d: %d kB at " TARGET_ADDR_FMT,
 		pPrivate->pChip->details.name,
 		pPrivate->bank_number,
 		k,
@@ -2642,7 +2642,9 @@ static int sam4_probe(struct flash_bank *bank)
 	for (x = 0; x < SAM4_MAX_FLASH_BANKS; x++) {
 		if (bank->base == pPrivate->pChip->details.bank[x].base_address) {
 			bank->size = pPrivate->pChip->details.bank[x].size_bytes;
-			LOG_DEBUG("SAM4 Set flash bank to %08X - %08X, idx %d", bank->base, bank->base + bank->size, x);
+			LOG_DEBUG("SAM4 Set flash bank to " TARGET_ADDR_FMT " - "
+					TARGET_ADDR_FMT ", idx %d", bank->base,
+					bank->base + bank->size, x);
 			break;
 		}
 	}
@@ -3210,6 +3212,7 @@ static const struct command_registration at91sam4_exec_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.help = "Print information about the current at91sam4 chip"
 			"and its flash configuration.",
+		.usage = "",
 	},
 	{
 		.name = "slowclk",
@@ -3232,7 +3235,7 @@ static const struct command_registration at91sam4_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver at91sam4_flash = {
+const struct flash_driver at91sam4_flash = {
 	.name = "at91sam4",
 	.commands = at91sam4_command_handlers,
 	.flash_bank_command = sam4_flash_bank_command,

@@ -45,9 +45,12 @@ struct flash_sector {
 	uint32_t size;
 	/**
 	 * Indication of erasure status: 0 = not erased, 1 = erased,
-	 * other = unknown.  Set by @c flash_driver_s::erase_check.
+	 * other = unknown.  Set by @c flash_driver_s::erase_check only.
 	 *
-	 * Flag is not used in protection block
+	 * This information must be considered stale immediately.
+	 * Don't set it in flash_driver_s::erase or a device mass_erase
+	 * Don't clear it in flash_driver_s::write
+	 * The flag is not used in a protection block
 	 */
 	int is_erased;
 	/**
@@ -87,11 +90,11 @@ struct flash_bank {
 
 	struct target *target; /**< Target to which this bank belongs. */
 
-	struct flash_driver *driver; /**< Driver for this bank. */
+	const struct flash_driver *driver; /**< Driver for this bank. */
 	void *driver_priv; /**< Private driver storage pointer */
 
 	int bank_number; /**< The 'bank' (or chip number) of this instance. */
-	uint32_t base; /**< The base address of this bank */
+	target_addr_t base; /**< The base address of this bank */
 	uint32_t size; /**< The size of this chip bank, in bytes */
 
 	int chip_width; /**< Width of the chip in bytes (1,2,4 bytes) */
@@ -149,9 +152,9 @@ int flash_register_commands(struct command_context *cmd_ctx);
  * @returns ERROR_OK if successful; otherwise, an error code.
  */
 int flash_erase_address_range(struct target *target,
-		bool pad, uint32_t addr, uint32_t length);
+		bool pad, target_addr_t addr, uint32_t length);
 
-int flash_unlock_address_range(struct target *target, uint32_t addr,
+int flash_unlock_address_range(struct target *target, target_addr_t addr,
 		uint32_t length);
 
 /**
@@ -263,7 +266,7 @@ struct flash_bank *get_flash_bank_by_num_noprobe(int num);
  * @param check return ERROR_OK and result_bank NULL if the bank does not exist
  * @returns The struct flash_bank located at @a addr, or NULL.
  */
-int get_flash_bank_by_addr(struct target *target, uint32_t addr, bool check,
+int get_flash_bank_by_addr(struct target *target, target_addr_t addr, bool check,
 		struct flash_bank **result_bank);
 /**
  * Allocate and fill an array of sectors or protection blocks.

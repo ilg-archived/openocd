@@ -211,6 +211,7 @@ static const struct nrf5_device_spec nrf5_known_devices_table[] = {
 	/* nRF52832 Devices */
 	NRF5_DEVICE_DEF(0x00C7, "52832", "QFAA", "B0",    512),
 	NRF5_DEVICE_DEF(0x0139, "52832", "QFAA", "E0",    512),
+	NRF5_DEVICE_DEF(0x00E3, "52832", "CIAA", "B0",    512),
 
 	/* nRF52840 Devices */
 	NRF5_DEVICE_DEF(0x0150, "52840", "QIAA", "C0",    1024),
@@ -905,7 +906,7 @@ FLASH_BANK_COMMAND_HANDLER(nrf5_flash_bank_command)
 		bank->bank_number = 1;
 		break;
 	default:
-		LOG_ERROR("Invalid bank address 0x%08" PRIx32, bank->base);
+		LOG_ERROR("Invalid bank address " TARGET_ADDR_FMT, bank->base);
 		return ERROR_FAIL;
 	}
 
@@ -1117,6 +1118,7 @@ static const struct command_registration nrf5_exec_command_handlers[] = {
 		.handler	= nrf5_handle_mass_erase_command,
 		.mode		= COMMAND_EXEC,
 		.help		= "Erase all flash contents of the chip.",
+		.usage		= "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1139,7 +1141,7 @@ static const struct command_registration nrf5_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver nrf5_flash = {
+const struct flash_driver nrf5_flash = {
 	.name			= "nrf5",
 	.commands		= nrf5_command_handlers,
 	.flash_bank_command	= nrf5_flash_bank_command,
@@ -1157,7 +1159,7 @@ struct flash_driver nrf5_flash = {
 
 /* We need to retain the flash-driver name as well as the commands
  * for backwards compatability */
-struct flash_driver nrf51_flash = {
+const struct flash_driver nrf51_flash = {
 	.name			= "nrf51",
 	.commands		= nrf5_command_handlers,
 	.flash_bank_command	= nrf5_flash_bank_command,

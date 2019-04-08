@@ -1802,10 +1802,11 @@ displayed by the GDB session @pxref{usingopenocdsmpwithgdb,,Using OpenOCD SMP wi
 The SMP behaviour can be disabled/enabled dynamically. On cortex_a following
 command have been implemented.
 @itemize @bullet
-@item cortex_a smp_on : enable SMP mode, behaviour is as described above.
-@item cortex_a smp_off : disable SMP mode, the current target is the one
+@item cortex_a smp on : enable SMP mode, behaviour is as described above.
+@item cortex_a smp off : disable SMP mode, the current target is the one
 displayed in the GDB session, only this target is now controlled by GDB
 session. This behaviour is useful during system boot up.
+@item cortex_a smp : display current SMP mode.
 @item cortex_a smp_gdb : display/fix the core id displayed in GDB session see
 following example.
 @end itemize
@@ -2368,6 +2369,17 @@ the hardware can support.
 Returns the name of the debug adapter driver being used.
 @end deffn
 
+@anchor{adapter_usb_location}
+@deffn Command {adapter usb location} <bus>-<port>[.<port>]...
+Specifies the physical USB port of the adapter to use. The path
+roots at @var{bus} and walks down the physical ports, with each
+@var{port} option specifying a deeper level in the bus topology, the last
+@var{port} denoting where the target adapter is actually plugged.
+The USB bus topology can be queried with the command @emph{lsusb -t} or @emph{dmesg}.
+
+This command is only available if your libusb1 is at least version 1.0.16.
+@end deffn
+
 @section Interface Drivers
 
 Each of the interface drivers listed here must be explicitly
@@ -2500,7 +2512,10 @@ If not specified, serial numbers are not considered.
 and are not restricted to containing only decimal digits.)
 @end deffn
 
-@deffn {Config Command} {ftdi_location} <bus>:<port>[,<port>]...
+@deffn {Config Command} {ftdi_location} <bus>-<port>[.<port>]...
+@emph{DEPRECATED -- avoid using this.
+Use the @xref{adapter_usb_location, adapter usb location} command instead.}
+
 Specifies the physical USB port of the adapter to use. The path
 roots at @var{bus} and walks down the physical ports, with each
 @var{port} option specifying a deeper level in the bus topology, the last
@@ -5440,9 +5455,16 @@ the flash.
 @anchor{at91samd}
 @deffn {Flash Driver} at91samd
 @cindex at91samd
-All members of the ATSAMD, ATSAMR, ATSAML and ATSAMC microcontroller
+All members of the ATSAM D2x, D1x, D0x, ATSAMR, ATSAML and ATSAMC microcontroller
 families from Atmel include internal flash and use ARM's Cortex-M0+ core.
-This driver uses the same command names/syntax as @xref{at91sam3}.
+
+Do not use for ATSAM D51 and E5x: use @xref{atsame5}.
+
+The devices have one flash bank:
+
+@example
+flash bank $_FLASHNAME at91samd 0x00000000 0 1 1 $_TARGETNAME
+@end example
 
 @deffn Command {at91samd chip-erase}
 Issues a complete Flash erase via the Device Service Unit (DSU). This can be
@@ -5604,9 +5626,72 @@ Command is used internally in event event reset-deassert-post.
 @end deffn
 @end deffn
 
+@anchor{atsame5}
+@deffn {Flash Driver} atsame5
+@cindex atsame5
+All members of the SAM E54, E53, E51 and D51 microcontroller
+families from Microchip (former Atmel) include internal flash
+and use ARM's Cortex-M4 core.
+
+The devices have two ECC flash banks with a swapping feature.
+This driver handles both banks together as it were one.
+Bank swapping is not supported yet.
+
+@example
+flash bank $_FLASHNAME atsame5 0x00000000 0 1 1 $_TARGETNAME
+@end example
+
+@deffn Command {atsame5 bootloader}
+Shows or sets the bootloader size configuration, stored in the User Page of the
+Flash. This is called the BOOTPROT region. When setting, the bootloader size
+must be specified in bytes. The nearest bigger protection size is used.
+Settings are written immediately but only take effect on MCU reset.
+Setting the bootloader size to 0 disables bootloader protection.
+
+@example
+atsame5 bootloader
+atsame5 bootloader 16384
+@end example
+@end deffn
+
+@deffn Command {atsame5 chip-erase}
+Issues a complete Flash erase via the Device Service Unit (DSU). This can be
+used to erase a chip back to its factory state and does not require the
+processor to be halted.
+@end deffn
+
+@deffn Command {atsame5 dsu_reset_deassert}
+This command releases internal reset held by DSU
+and prepares reset vector catch in case of reset halt.
+Command is used internally in event event reset-deassert-post.
+@end deffn
+
+@deffn Command {atsame5 userpage}
+Writes or reads the first 64 bits of NVM User Page which is located at
+0x804000. This field includes various fuses.
+Reading is done by invoking this command without any arguments.
+Writing is possible by giving 1 or 2 hex values. The first argument
+is the value to be written and the second one is an optional bit mask
+(a zero bit in the mask means the bit stays unchanged).
+The reserved fields are always masked out and cannot be changed.
+
+@example
+# Read
+>atsame5 userpage
+USER PAGE: 0xAEECFF80FE9A9239
+# Write
+>atsame5 userpage 0xAEECFF80FE9A9239
+# Write 2 to SEESBLK and 4 to SEEPSZ fields but leave other bits unchanged
+# (setup SmartEEPROM of virtual size 8192 bytes)
+>atsame5 userpage 0x4200000000 0x7f00000000
+@end example
+@end deffn
+
+@end deffn
+
 @deffn {Flash Driver} atsamv
 @cindex atsamv
-All members of the ATSAMV, ATSAMS, and ATSAME families from
+All members of the ATSAMV7x, ATSAMS70, and ATSAME70 families from
 Atmel include internal flash and use ARM's Cortex-M7 core.
 This driver uses the same command names/syntax as @xref{at91sam3}.
 @end deffn
@@ -6537,9 +6622,10 @@ or upon executing the @command{stm32f1x options_load} command.
 The @var{num} parameter is a value shown by @command{flash banks}.
 @end deffn
 
-@deffn Command {stm32f1x options_write} num (@option{SWWDG}|@option{HWWDG}) (@option{RSTSTNDBY}|@option{NORSTSTNDBY}) (@option{RSTSTOP}|@option{NORSTSTOP})
+@deffn Command {stm32f1x options_write} num (@option{SWWDG}|@option{HWWDG}) (@option{RSTSTNDBY}|@option{NORSTSTNDBY}) (@option{RSTSTOP}|@option{NORSTSTOP}) (@option{USEROPT} user_data)
 Writes the stm32 option byte with the specified values.
 The @var{num} parameter is a value shown by @command{flash banks}.
+The @var{user_data} parameter is content of higher 16 bits of the option byte register (Data0 and Data1 as one 16bit number).
 @end deffn
 
 @deffn Command {stm32f1x options_load} num
@@ -6559,6 +6645,17 @@ the chip identification register, and autoconfigures itself.
 @example
 flash bank $_FLASHNAME stm32f2x 0 0 0 0 $_TARGETNAME
 @end example
+
+If you use OTP (One-Time Programmable) memory define it as a second bank
+as per the following example.
+@example
+flash bank $_FLASHNAME stm32f2x 0x1FFF7800 0 0 0 $_TARGETNAME
+@end example
+
+@deffn Command {stm32f2x otp } num (@option{enable}|@option{disable}|@option{show})
+Enables or disables OTP write commands for bank @var{num}.
+The @var{num} parameter is a value shown by @command{flash banks}.
+@end deffn
 
 Note that some devices have been found that have a flash size register that contains
 an invalid value, to workaround this issue you can override the probed value used by
@@ -8844,12 +8941,8 @@ Initialize core debug
 Enables debug by unlocking the Software Lock and clearing sticky powerdown indications
 @end deffn
 
-@deffn Command {cortex_a smp_off}
-Disable SMP mode
-@end deffn
-
-@deffn Command {cortex_a smp_on}
-Enable SMP mode
+@deffn Command {cortex_a smp} [on|off]
+Display/set the current SMP mode
 @end deffn
 
 @deffn Command {cortex_a smp_gdb} [core_id]
@@ -9060,8 +9153,8 @@ target code relies on. In a configuration file, the command would typically be c
 However, normally it is not necessary to use the command at all.
 @end deffn
 
-@deffn Command {aarch64 smp_on|smp_off}
-Enable and disable SMP handling. The state of SMP handling influences the way targets in an SMP group
+@deffn Command {aarch64 smp} [on|off]
+Display, enable or disable SMP handling mode. The state of SMP handling influences the way targets in an SMP group
 are handled by the run control. With SMP handling enabled, issuing halt or resume to one core will trigger
 halting or resuming of all cores in the group. The command @code{target smp} defines which targets are in the SMP
 group. With SMP handling disabled, all targets need to be treated individually.
@@ -9249,6 +9342,14 @@ be copied to an in-memory buffer identified by the @option{address} and
 @option{size} options using DMA.
 @end deffn
 
+@deffn Command {$target_name catch_exc} [@option{off}|@option{sec_el1}|@option{sec_el3}|@option{nsec_el1}|@option{nsec_el2}]+
+Cause @command{$target_name} to halt when an exception is taken. Any combination of
+Secure (sec) EL1/EL3 or Non-Secure (nsec) EL1/EL2 is valid. The target
+@command{$target_name} will halt before taking the exception. In order to resume
+the target, the exception catch must be disabled again with @command{$target_name catch_exc off}.
+Issuing the command without options prints the current configuration.
+@end deffn
+
 @section Intel Architecture
 
 Intel Quark X10xx is the first product in the Quark family of SoCs. It is an IA-32
@@ -9362,6 +9463,14 @@ command can be used if OpenOCD gets this wrong, or a target implements custom
 CSRs.
 @end deffn
 
+@deffn Command {riscv expose_custom} n0[-m0][,n1[-m1]]...
+The RISC-V Debug Specification allows targets to expose custom registers
+through abstract commands. (See Section 3.5.1.1 in that document.) This command
+configures a list of inclusive ranges of those registers to expose. Number 0
+indicates the first custom register, whose abstract command number is 0xc000.
+This command must be executed before `init`.
+@end deffn
+
 @deffn Command {riscv set_command_timeout_sec} [seconds]
 Set the wall-clock timeout (in seconds) for individual commands. The default
 should work fine for all but the slowest targets (eg. simulators).
@@ -9380,6 +9489,17 @@ This is used to access 64-bit floating point registers on 32-bit targets.
 @deffn Command {riscv set_prefer_sba} on|off
 When on, prefer to use System Bus Access to access memory.  When off, prefer to
 use the Program Buffer to access memory.
+@end deffn
+
+@deffn Command {riscv set_ir} (@option{idcode}|@option{dtmcs}|@option{dmi}) [value]
+Set the IR value for the specified JTAG register.  This is useful, for
+example, when using the existing JTAG interface on a Xilinx FPGA by
+way of BSCANE2 primitives that only permit a limited selection of IR
+values.
+
+When utilizing version 0.11 of the RISC-V Debug Specification,
+@option{dtmcs} and @option{dmi} set the IR values for the DTMCONTROL
+and DBUS registers, respectively.
 @end deffn
 
 @subsection RISC-V Authentication Commands
@@ -10095,55 +10215,6 @@ and GDB would require stopping the target to get the prompt back.
 Do not use this mode under an IDE like Eclipse as it caches values of
 previously shown varibles.
 
-@anchor{usingopenocdsmpwithgdb}
-@section Using OpenOCD SMP with GDB
-@cindex SMP
-For SMP support following GDB serial protocol packet have been defined :
-@itemize @bullet
-@item j - smp status request
-@item J - smp set request
-@end itemize
-
-OpenOCD implements :
-@itemize @bullet
-@item @option{jc} packet for reading core id displayed by
-GDB connection. Reply is @option{XXXXXXXX} (8 hex digits giving core id) or
- @option{E01} for target not smp.
-@item @option{JcXXXXXXXX} (8 hex digits) packet for setting core id displayed at next GDB continue
-(core id -1 is reserved for returning to normal resume mode). Reply @option{E01}
-for target not smp or @option{OK} on success.
-@end itemize
-
-Handling of this packet within GDB can be done :
-@itemize @bullet
-@item by the creation of an internal variable (i.e @option{_core}) by mean
-of function allocate_computed_value allowing following GDB command.
-@example
-set $_core 1
-#Jc01 packet is sent
-print $_core
-#jc packet is sent and result is affected in $
-@end example
-
-@item by the usage of GDB maintenance command as described in following example (2 cpus in SMP with
-core id 0 and 1 @pxref{definecputargetsworkinginsmp,,Define CPU targets working in SMP}).
-
-@example
-# toggle0 : force display of coreid 0
-define toggle0
-maint packet Jc0
-continue
-main packet Jc-1
-end
-# toggle1 : force display of coreid 1
-define toggle1
-maint packet Jc1
-continue
-main packet Jc-1
-end
-@end example
-@end itemize
-
 @section RTOS Support
 @cindex RTOS Support
 @anchor{gdbrtossupport}
@@ -10174,12 +10245,11 @@ Currently supported rtos's include:
 @item @option{mqx}
 @item @option{uCOS-III}
 @item @option{nuttx}
+@item @option{hwthread} (This is not an actual RTOS. @xref{usingopenocdsmpwithgdb,,Using OpenOCD SMP with GDB}.)
 @end itemize
 
-@quotation Note
 Before an RTOS can be detected, it must export certain symbols; otherwise, it cannot
 be used by OpenOCD. Below is a list of the required symbols for each supported RTOS.
-@end quotation
 
 @table @code
 @item eCos symbols
@@ -10225,6 +10295,72 @@ contrib/rtos-helpers/FreeRTOS-openocd.c
 @item uC/OS-III
 contrib/rtos-helpers/uCOS-III-openocd.c
 @end table
+
+@anchor{usingopenocdsmpwithgdb}
+@section Using OpenOCD SMP with GDB
+@cindex SMP
+@cindex RTOS
+@cindex hwthread
+OpenOCD includes a pseudo RTOS called @emph{hwthread} that presents CPU cores
+("hardware threads") in an SMP system as threads to GDB. With this extension,
+GDB can be used to inspect the state of an SMP system in a natural way.
+After halting the system, using the GDB command @command{info threads} will
+list the context of each active CPU core in the system. GDB's @command{thread}
+command can be used to switch the view to a different CPU core.
+The @command{step} and @command{stepi} commands can be used to step a specific core
+while other cores are free-running or remain halted, depending on the
+scheduler-locking mode configured in GDB.
+
+@section Legacy SMP core switching support
+@quotation Note
+This method is deprecated in favor of the @emph{hwthread} pseudo RTOS.
+@end quotation
+
+For SMP support following GDB serial protocol packet have been defined :
+@itemize @bullet
+@item j - smp status request
+@item J - smp set request
+@end itemize
+
+OpenOCD implements :
+@itemize @bullet
+@item @option{jc} packet for reading core id displayed by
+GDB connection. Reply is @option{XXXXXXXX} (8 hex digits giving core id) or
+ @option{E01} for target not smp.
+@item @option{JcXXXXXXXX} (8 hex digits) packet for setting core id displayed at next GDB continue
+(core id -1 is reserved for returning to normal resume mode). Reply @option{E01}
+for target not smp or @option{OK} on success.
+@end itemize
+
+Handling of this packet within GDB can be done :
+@itemize @bullet
+@item by the creation of an internal variable (i.e @option{_core}) by mean
+of function allocate_computed_value allowing following GDB command.
+@example
+set $_core 1
+#Jc01 packet is sent
+print $_core
+#jc packet is sent and result is affected in $
+@end example
+
+@item by the usage of GDB maintenance command as described in following example (2 cpus in SMP with
+core id 0 and 1 @pxref{definecputargetsworkinginsmp,,Define CPU targets working in SMP}).
+
+@example
+# toggle0 : force display of coreid 0
+define toggle0
+maint packet Jc0
+continue
+main packet Jc-1
+end
+# toggle1 : force display of coreid 1
+define toggle1
+maint packet Jc1
+continue
+main packet Jc-1
+end
+@end example
+@end itemize
 
 @node Tcl Scripting API
 @chapter Tcl Scripting API

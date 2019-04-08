@@ -179,6 +179,7 @@ COMMAND_HANDLER(handle_mxc_biswap_command)
 static const struct command_registration mxc_sub_command_handlers[] = {
 	{
 		.name = "biswap",
+		.mode = COMMAND_EXEC,
 		.handler = handle_mxc_biswap_command,
 		.help = "Turns on/off bad block information swaping from main area, "
 			"without parameter query status.",
@@ -192,7 +193,8 @@ static const struct command_registration mxc_nand_command_handler[] = {
 		.name = "mxc",
 		.mode = COMMAND_ANY,
 		.help = "MXC NAND flash controller commands",
-		.chain = mxc_sub_command_handlers
+		.chain = mxc_sub_command_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

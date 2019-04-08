@@ -313,6 +313,11 @@ COMMAND_HANDLER(handle_dap_info_command)
 	struct adiv5_dap *dap = arm->dap;
 	uint32_t apsel;
 
+	if (dap == NULL) {
+		LOG_ERROR("DAP instance not available. Probably a HLA target...");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	switch (CMD_ARGC) {
 		case 0:
 			apsel = dap->apsel;
@@ -368,6 +373,7 @@ static const struct command_registration dap_commands[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "DAP commands",
 		.chain = dap_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

@@ -230,6 +230,9 @@ static const struct samd_part saml21_parts[] = {
     /* SAMR30 parts have integrated SAML21 with a radio */
 	{ 0x1E, "SAMR30G18A", 256, 32 },
 	{ 0x1F, "SAMR30E18A", 256, 32 },
+
+    /* SAMR34/R35 parts have integrated SAML21 with a lora radio */
+	{ 0x28, "SAMR34J18", 256, 32 },
 };
 
 /* Known SAML22 parts. */
@@ -259,6 +262,8 @@ static const struct samd_part samc20_parts[] = {
 	{ 0x0B, "SAMC20E17A", 128, 16 },
 	{ 0x0C, "SAMC20E16A", 64, 8 },
 	{ 0x0D, "SAMC20E15A", 32, 4 },
+	{ 0x20, "SAMC20N18A", 256, 32 },
+	{ 0x21, "SAMC20N17A", 128, 16 },
 };
 
 /* Known SAMC21 parts. */
@@ -275,6 +280,8 @@ static const struct samd_part samc21_parts[] = {
 	{ 0x0B, "SAMC21E17A", 128, 16 },
 	{ 0x0C, "SAMC21E16A", 64, 8 },
 	{ 0x0D, "SAMC21E15A", 32, 4 },
+	{ 0x20, "SAMC21N18A", 256, 32 },
+	{ 0x21, "SAMC21N17A", 128, 16 },
 };
 
 /* Each family of parts contains a parts table in the DEVSEL field of DID.  The
@@ -899,7 +906,8 @@ free_pb:
 FLASH_BANK_COMMAND_HANDLER(samd_flash_bank_command)
 {
 	if (bank->base != SAMD_FLASH) {
-		LOG_ERROR("Address 0x%08" PRIx32 " invalid bank address (try 0x%08" PRIx32
+		LOG_ERROR("Address " TARGET_ADDR_FMT
+				" invalid bank address (try 0x%08" PRIx32
 				"[at91samd series] )",
 				bank->base, SAMD_FLASH);
 		return ERROR_FAIL;
@@ -1209,7 +1217,8 @@ static const struct command_registration at91samd_exec_command_handlers[] = {
 		.name = "dsu_reset_deassert",
 		.handler = samd_handle_reset_deassert,
 		.mode = COMMAND_EXEC,
-		.help = "Deasert internal reset held by DSU."
+		.help = "Deassert internal reset held by DSU.",
+		.usage = "",
 	},
 	{
 		.name = "info",
@@ -1217,6 +1226,7 @@ static const struct command_registration at91samd_exec_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.help = "Print information about the current at91samd chip "
 			"and its flash configuration.",
+		.usage = "",
 	},
 	{
 		.name = "chip-erase",
@@ -1224,6 +1234,7 @@ static const struct command_registration at91samd_exec_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.help = "Erase the entire Flash by using the Chip-"
 			"Erase feature in the Device Service Unit (DSU).",
+		.usage = "",
 	},
 	{
 		.name = "set-security",
@@ -1233,6 +1244,7 @@ static const struct command_registration at91samd_exec_command_handlers[] = {
 			"This makes it impossible to read the Flash contents. "
 			"The only way to undo this is to issue the chip-erase "
 			"command.",
+		.usage = "'enable'",
 	},
 	{
 		.name = "eeprom",
@@ -1279,7 +1291,7 @@ static const struct command_registration at91samd_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver at91samd_flash = {
+const struct flash_driver at91samd_flash = {
 	.name = "at91samd",
 	.commands = at91samd_command_handlers,
 	.flash_bank_command = samd_flash_bank_command,

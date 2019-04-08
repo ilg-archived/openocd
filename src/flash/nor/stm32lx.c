@@ -816,8 +816,9 @@ static int stm32lx_probe(struct flash_bank *bank)
 			/* This is the first bank */
 			flash_size_in_kb = stm32lx_info->part_info.first_bank_size_kb;
 		} else {
-			LOG_WARNING("STM32L flash bank base address config is incorrect."
-				    " 0x%" PRIx32 " but should rather be 0x%" PRIx32 " or 0x%" PRIx32,
+			LOG_WARNING("STM32L flash bank base address config is incorrect. "
+					TARGET_ADDR_FMT " but should rather be 0x%" PRIx32
+					" or 0x%" PRIx32,
 						bank->base, base_address, second_bank_base);
 			return ERROR_FAIL;
 		}
@@ -943,7 +944,7 @@ static const struct command_registration stm32lx_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver stm32lx_flash = {
+const struct flash_driver stm32lx_flash = {
 		.name = "stm32lx",
 		.commands = stm32lx_command_handlers,
 		.flash_bank_command = stm32lx_flash_bank_command,

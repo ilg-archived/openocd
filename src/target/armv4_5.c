@@ -434,8 +434,8 @@ void arm_set_cpsr(struct arm *arm, uint32_t cpsr)
 	 */
 	if (arm->cpsr) {
 		buf_set_u32(arm->cpsr->value, 0, 32, cpsr);
-		arm->cpsr->valid = 1;
-		arm->cpsr->dirty = 0;
+		arm->cpsr->valid = true;
+		arm->cpsr->dirty = false;
 	}
 
 	arm->core_mode = mode;
@@ -526,7 +526,7 @@ static struct reg_feature arm_gdb_dummy_fp_features = {
 struct reg arm_gdb_dummy_fp_reg = {
 	.name = "GDB dummy FPA register",
 	.value = (uint8_t *) arm_gdb_dummy_fp_value,
-	.valid = 1,
+	.valid = true,
 	.size = 96,
 	.exist = false,
 	.number = 16,
@@ -543,7 +543,7 @@ static const uint8_t arm_gdb_dummy_fps_value[4];
 struct reg arm_gdb_dummy_fps_reg = {
 	.name = "GDB dummy FPA status register",
 	.value = (uint8_t *) arm_gdb_dummy_fps_value,
-	.valid = 1,
+	.valid = true,
 	.size = 32,
 	.exist = false,
 	.number = 24,
@@ -573,8 +573,8 @@ static int armv4_5_get_core_reg(struct reg *reg)
 	retval = reg_arch_info->arm->read_core_reg(target, reg,
 			reg_arch_info->num, reg_arch_info->mode);
 	if (retval == ERROR_OK) {
-		reg->valid = 1;
-		reg->dirty = 0;
+		reg->valid = true;
+		reg->dirty = false;
 	}
 
 	return retval;
@@ -619,9 +619,9 @@ static int armv4_5_set_core_reg(struct reg *reg, uint8_t *buf)
 			value = buf_get_u32(buf + 4, 0, 32);
 			buf_set_u32(reg->value + 4, 0, 32, value);
 		}
-		reg->valid = 1;
+		reg->valid = true;
 	}
-	reg->dirty = 1;
+	reg->dirty = true;
 
 	return ERROR_OK;
 }
@@ -1134,33 +1134,34 @@ static const struct command_registration arm_exec_command_handlers[] = {
 	},
 	{
 		.name = "mrc",
+		.mode = COMMAND_EXEC,
 		.jim_handler = &jim_mcrmrc,
 		.help = "read coprocessor register",
 		.usage = "cpnum op1 CRn CRm op2",
 	},
 	{
-		"semihosting",
+		.name = "semihosting",
 		.handler = handle_common_semihosting_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
 		.help = "activate support for semihosting operations",
 	},
 	{
-		"semihosting_cmdline",
+		.name = "semihosting_cmdline",
 		.handler = handle_common_semihosting_cmdline,
 		.mode = COMMAND_EXEC,
 		.usage = "arguments",
 		.help = "command line arguments to be passed to program",
 	},
 	{
-		"semihosting_fileio",
+		.name = "semihosting_fileio",
 		.handler = handle_common_semihosting_fileio_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
 		.help = "activate support for semihosting fileio operations",
 	},
 	{
-		"semihosting_resexit",
+		.name = "semihosting_resexit",
 		.handler = handle_common_semihosting_resumable_exit_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
@@ -1354,6 +1355,8 @@ int armv4_5_run_algorithm_inner(struct target *target,
 	cpsr = buf_get_u32(arm->cpsr->value, 0, 32);
 
 	for (i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction == PARAM_IN)
+			continue;
 		retval = target_write_buffer(target, mem_params[i].address, mem_params[i].size,
 				mem_params[i].value);
 		if (retval != ERROR_OK)
@@ -1361,6 +1364,9 @@ int armv4_5_run_algorithm_inner(struct target *target,
 	}
 
 	for (i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction == PARAM_IN)
+			continue;
+
 		struct reg *reg = register_get_by_name(arm->core_cache, reg_params[i].reg_name, 0);
 		if (!reg) {
 			LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
@@ -1393,8 +1399,8 @@ int armv4_5_run_algorithm_inner(struct target *target,
 			arm_algorithm_info->core_mode);
 		buf_set_u32(arm->cpsr->value, 0, 5,
 			arm_algorithm_info->core_mode);
-		arm->cpsr->dirty = 1;
-		arm->cpsr->valid = 1;
+		arm->cpsr->dirty = true;
+		arm->cpsr->valid = true;
 	}
 
 	/* terminate using a hardware or (ARMv5+) software breakpoint */
@@ -1464,14 +1470,14 @@ int armv4_5_run_algorithm_inner(struct target *target,
 			buf_set_u32(ARMV4_5_CORE_REG_MODE(arm->core_cache,
 				arm_algorithm_info->core_mode, i).value, 0, 32, context[i]);
 			ARMV4_5_CORE_REG_MODE(arm->core_cache, arm_algorithm_info->core_mode,
-				i).valid = 1;
+				i).valid = true;
 			ARMV4_5_CORE_REG_MODE(arm->core_cache, arm_algorithm_info->core_mode,
-				i).dirty = 1;
+				i).dirty = true;
 		}
 	}
 
 	arm_set_cpsr(arm, cpsr);
-	arm->cpsr->dirty = 1;
+	arm->cpsr->dirty = true;
 
 	arm->core_state = core_state;
 

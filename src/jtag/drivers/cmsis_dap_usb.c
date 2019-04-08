@@ -77,8 +77,8 @@ static bool swd_mode;
 #define CMD_DAP_RESET_TARGET      0x0A
 
 /* CMD_INFO */
-#define INFO_ID_VID               0x00      /* string */
-#define INFO_ID_PID               0x02      /* string */
+#define INFO_ID_VENDOR            0x01      /* string */
+#define INFO_ID_PRODUCT           0x02      /* string */
 #define INFO_ID_SERNUM            0x03      /* string */
 #define INFO_ID_FW_VER            0x04      /* string */
 #define INFO_ID_TD_VEND           0x05      /* string */
@@ -1096,7 +1096,7 @@ static int cmsis_dap_init(void)
 
 	if (jtag_reset_config & RESET_CNCT_UNDER_SRST) {
 		if (jtag_reset_config & RESET_SRST_NO_GATING) {
-			retval = cmsis_dap_cmd_DAP_SWJ_Pins(0, (1 << 7), 0, NULL);
+			retval = cmsis_dap_cmd_DAP_SWJ_Pins(0, SWJ_PIN_SRST, 0, NULL);
 			if (retval != ERROR_OK)
 				return ERROR_FAIL;
 			LOG_INFO("Connecting under reset");

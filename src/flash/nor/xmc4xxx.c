@@ -778,7 +778,7 @@ static int xmc4xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 		memcpy(&tmp_buf[start_pad], buffer, remaining);
 
 		if (end_pad) {
-			LOG_INFO("Padding end of page @%08"PRIx32" by %d bytes",
+			LOG_INFO("Padding end of page @" TARGET_ADDR_FMT " by %d bytes",
 				 bank->base + offset, end_pad);
 			memset(&tmp_buf[256 - end_pad], 0xff, end_pad);
 		}
@@ -1329,7 +1329,8 @@ static const struct command_registration xmc4xxx_exec_command_handlers[] = {
 		.usage = "bank_id user_level[0-1]",
 		.help = "Permanently Removes flash protection (read and write) "
 		"for the specified user level",
-	},	COMMAND_REGISTRATION_DONE
+	},
+	COMMAND_REGISTRATION_DONE
 };
 
 static const struct command_registration xmc4xxx_command_handlers[] = {
@@ -1343,7 +1344,7 @@ static const struct command_registration xmc4xxx_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver xmc4xxx_flash = {
+const struct flash_driver xmc4xxx_flash = {
 	.name = "xmc4xxx",
 	.commands = xmc4xxx_command_handlers,
 	.flash_bank_command = xmc4xxx_flash_bank_command,

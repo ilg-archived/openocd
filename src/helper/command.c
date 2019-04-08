@@ -579,31 +579,35 @@ char *command_name(struct command *c, char delim)
 
 static bool command_can_run(struct command_context *cmd_ctx, struct command *c)
 {
-	return c->mode == COMMAND_ANY || c->mode == cmd_ctx->mode;
+	if (c->mode == COMMAND_ANY || c->mode == cmd_ctx->mode)
+		return true;
+
+	/* Many commands may be run only before/after 'init' */
+	const char *when;
+	switch (c->mode) {
+		case COMMAND_CONFIG:
+			when = "before";
+			break;
+		case COMMAND_EXEC:
+			when = "after";
+			break;
+		/* handle the impossible with humor; it guarantees a bug report! */
+		default:
+			when = "if Cthulhu is summoned by";
+			break;
+	}
+	char *full_name = command_name(c, ' ');
+	LOG_ERROR("The '%s' command must be used %s 'init'.",
+			full_name ? full_name : c->name, when);
+	free(full_name);
+	return false;
 }
 
 static int run_command(struct command_context *context,
 	struct command *c, const char *words[], unsigned num_words)
 {
-	if (!command_can_run(context, c)) {
-		/* Many commands may be run only before/after 'init' */
-		const char *when;
-		switch (c->mode) {
-			case COMMAND_CONFIG:
-				when = "before";
-				break;
-			case COMMAND_EXEC:
-				when = "after";
-				break;
-			/* handle the impossible with humor; it guarantees a bug report! */
-			default:
-				when = "if Cthulhu is summoned by";
-				break;
-		}
-		LOG_ERROR("The '%s' command must be used %s 'init'.",
-			c->name, when);
+	if (!command_can_run(context, c))
 		return ERROR_FAIL;
-	}
 
 	struct command_invocation cmd = {
 		.ctx = context,
@@ -642,7 +646,10 @@ static int run_command(struct command_context *context,
 		/* we do not print out an error message because the command *should*
 		 * have printed out an error
 		 */
-		LOG_DEBUG("Command '%s' failed with error code %d", c->name, retval);
+		char *full_name = command_name(c, ' ');
+		LOG_DEBUG("Command '%s' failed with error code %d",
+					full_name ? full_name : c->name, retval);
+		free(full_name);
 	}
 
 	return retval;
@@ -1029,6 +1036,9 @@ static int command_unknown(Jim_Interp *interp, int argc, Jim_Obj *const *argv)
 	}
 	/* pass the command through to the intended handler */
 	if (c->jim_handler) {
+		if (!command_can_run(cmd_ctx, c))
+			return JIM_ERR;
+
 		interp->cmdPrivData = c->jim_handler_data;
 		return (*c->jim_handler)(interp, count, start);
 	}
@@ -1109,7 +1119,7 @@ int help_add_command(struct command_context *cmd_ctx, struct command *parent,
 			.name = cmd_name,
 			.mode = COMMAND_ANY,
 			.help = help_text,
-			.usage = usage,
+			.usage = usage ? : "",
 		};
 		nc = register_command(cmd_ctx, parent, &cr);
 		if (NULL == nc) {
@@ -1134,8 +1144,9 @@ int help_add_command(struct command_context *cmd_ctx, struct command *parent,
 	if (usage) {
 		bool replaced = false;
 		if (nc->usage) {
+			if (*nc->usage)
+				replaced = true;
 			free(nc->usage);
-			replaced = true;
 		}
 		nc->usage = strdup(usage);
 		if (replaced)
@@ -1284,6 +1295,7 @@ static const struct command_registration command_builtin_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "core command group (introspection)",
 		.chain = command_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

@@ -1772,13 +1772,15 @@ static const struct command_registration jlink_config_subcommand_handlers[] = {
 		.name = "reset",
 		.handler = &jlink_handle_config_reset_command,
 		.mode = COMMAND_EXEC,
-		.help = "undo configuration changes"
+		.help = "undo configuration changes",
+		.usage = "",
 	},
 	{
 		.name = "write",
 		.handler = &jlink_handle_config_write_command,
 		.mode = COMMAND_EXEC,
-		.help = "write configuration to the device"
+		.help = "write configuration to the device",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1820,13 +1822,15 @@ static const struct command_registration jlink_subcommand_handlers[] = {
 		.name = "freemem",
 		.handler = &jlink_handle_free_memory_command,
 		.mode = COMMAND_EXEC,
-		.help = "show free device memory"
+		.help = "show free device memory",
+		.usage = "",
 	},
 	{
 		.name = "hwstatus",
 		.handler = &jlink_handle_hwstatus_command,
 		.mode = COMMAND_EXEC,
-		.help = "show the hardware status"
+		.help = "show the hardware status",
+		.usage = "",
 	},
 	{
 		.name = "usb",
@@ -1849,12 +1853,14 @@ static const struct command_registration jlink_subcommand_handlers[] = {
 		.help = "access the device configuration. If no argument is given "
 			"this will show the device configuration",
 		.chain = jlink_config_subcommand_handlers,
+		.usage = "[<cmd>]",
 	},
 	{
 		.name = "emucom",
 		.mode = COMMAND_EXEC,
 		.help = "access EMUCOM channel",
-		.chain = jlink_emucom_subcommand_handlers
+		.chain = jlink_emucom_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1865,6 +1871,7 @@ static const struct command_registration jlink_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "perform jlink management",
 		.chain = jlink_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -2130,7 +2137,7 @@ skip:
 static void jlink_swd_queue_cmd(uint8_t cmd, uint32_t *dst, uint32_t data, uint32_t ap_delay_clk)
 {
 	uint8_t data_parity_trn[DIV_ROUND_UP(32 + 1, 8)];
-	if (tap_length + 46 + 8 + ap_delay_clk >= sizeof(tdi_buffer) * 8 ||
+	if (tap_length + 46 + 8 + ap_delay_clk >= swd_buffer_size * 8 ||
 	    pending_scan_results_length == MAX_PENDING_SCAN_RESULTS) {
 		/* Not enough room in the queue. Run the queue. */
 		queued_retval = jlink_swd_run_queue();
