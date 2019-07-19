@@ -29,7 +29,6 @@ extern        bool         microsemi_server_autokill;
 extern struct sockaddr_in  microsemi_server;
 extern        char         microsemi_server_reply[MICROSEMI_MAX_SOCKET_BUFFER_SIZE];
 extern        char         microsemi_server_path[MICROSEMI_SERVER_PATH_STRING_LEN];
-extern        char         microsemi_server_path[MICROSEMI_SERVER_PATH_STRING_LEN];
 extern        char         microsemi_server_binary[MICROSEMI_SERVER_PATH_STRING_LEN];
 extern        char         microsemi_current_path[MICROSEMI_CURRENT_PATH];
 extern        char         microsemi_client_path[MICROSEMI_SERVER_PATH_STRING_LEN];

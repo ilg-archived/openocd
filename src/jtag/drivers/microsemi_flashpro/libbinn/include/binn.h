@@ -274,9 +274,9 @@ BOOL   APIENTRY binn_is_container(binn *item);
 
 // create a new binn allocating memory for the structure
 binn * APIENTRY binn_new(int type, int size, void *buffer);
-binn * APIENTRY binn_list();
-binn * APIENTRY binn_map();
-binn * APIENTRY binn_object();
+binn * APIENTRY binn_list(void);
+binn * APIENTRY binn_map(void);
+binn * APIENTRY binn_object(void);
 
 // create a new binn storing the structure on the stack
 BOOL APIENTRY binn_create(binn *item, int type, int size, void *buffer);
@@ -340,7 +340,7 @@ ALWAYS_INLINE binn * binn_double(double value) {
 ALWAYS_INLINE binn * binn_bool(BOOL value) {
   return binn_value(BINN_BOOL, &value, 0, NULL);
 }
-ALWAYS_INLINE binn * binn_null() {
+ALWAYS_INLINE binn * binn_null(void) {
   return binn_value(BINN_NULL, NULL, 0, NULL);
 }
 ALWAYS_INLINE binn * binn_string(char *str, binn_mem_free freefn) {

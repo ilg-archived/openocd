@@ -25,8 +25,9 @@ int microsemi_server_set_autostart_timeout(int timeout) {
 }
 
 
-int  microsemi_serveridle_set_timeout(int timeout) {
+int microsemi_serveridle_set_timeout(int timeout) {
   microsemi_serveridle_timeout = timeout;
+  return 0;
 }
 
 

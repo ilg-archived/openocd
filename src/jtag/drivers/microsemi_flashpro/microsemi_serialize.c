@@ -135,7 +135,7 @@ microsemi_fp_request serialize_scan_command(binn *handle, struct scan_command *c
     binn_list_add_bool(handle, skip_out_value);
     binn_list_add_bool(handle, skip_in_value);
 
-    uint8_t *out_val_it = field_it->out_value;
+    const uint8_t *out_val_it = field_it->out_value;
     uint8_t *in_val_it  = field_it->in_value;
 
     int j;

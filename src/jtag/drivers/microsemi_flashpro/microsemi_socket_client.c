@@ -161,16 +161,17 @@ void client_api_call_timeout_linux(int ignore_this_argument) {
 #endif
 
 
-void detect_client_path() {
+void detect_client_path(void) {
+  ssize_t ret __attribute__((unused));
 #ifdef __MINGW32__
   // Windows implementation to get actual full binary path no matter what current directory is
   strcpy(microsemi_client_path, _pgmptr);
 #else
   // This might not work under some OS's like FreeBSD
-  readlink("/proc/self/exe", microsemi_client_path, sizeof(microsemi_client_path));
+  ret = readlink("/proc/self/exe", microsemi_client_path, sizeof(microsemi_client_path));
 #endif
 
-  getcwd(microsemi_current_path, sizeof(microsemi_current_path));
+  if (getcwd(microsemi_current_path, sizeof(microsemi_current_path))) {};
 
   //printf("fpClient: Microsemi fpClient path %s \n", microsemi_client_path);
 
@@ -200,11 +201,11 @@ void change_directory(char *path) {
   printf("fpClient: changing dir to %s\n", path);
 #endif
 
-  chdir(path);
+  if (chdir(path)) {};
 }
 
 
-void get_fpServer_absolute_path() {
+void get_fpServer_absolute_path(void) {
   char server_basepath[MICROSEMI_SERVER_PATH_STRING_LEN] = "";
 
   // TODO review this, I might have included a bracket somewhere where it's redundant, or maybe do not add bracked in the end of the paths
@@ -229,7 +230,7 @@ void get_fpServer_absolute_path() {
 }
 
 
-void start_server() {
+void start_server(void) {
   detect_client_path();
 
   char cmdline[MICROSEMI_SERVER_PATH_STRING_LEN + MICROSEMI_SERVER_PATH_STRING_LEN + 16]; // allow to fit a full sized path + some extra parameters
@@ -440,7 +441,7 @@ int microsemi_socket_close() {
 }
 
 
-void* microsemi_socket_send_unprotected(binn *request, binn **response) {
+void microsemi_socket_send_unprotected(binn *request, binn **response) {
   int recieved_data_size = 0;
   int iResult;
 
@@ -489,7 +490,7 @@ void* microsemi_socket_send_unprotected(binn *request, binn **response) {
 
 int microsemi_socket_send(binn *request, binn **response, microsemi_fp_request timeout_type) {
 
-  if (timeout_type == -1 || microsemi_fp_request_timeout_weights[timeout_type] == 0 || microsemi_client_timeout == 0) {
+  if ((int)timeout_type == -1 || microsemi_fp_request_timeout_weights[timeout_type] == 0 || microsemi_client_timeout == 0) {
     // invoke api call without any timeout watchdog when either:
     // call invoked by -1 type
     // or the weight for that call type is 0
@@ -548,6 +549,7 @@ int microsemi_socket_set_port(int port) {
   }
 
   microsemi_socket_port = port;
+  return 0;
 }
 
 

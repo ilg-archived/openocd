@@ -156,7 +156,7 @@ static int microsemi_flashpro_execute_statemove(struct statemove_command *cmd)
         LOG_ERROR("fpClient, call 'execute_statemove' to fpServer expired.");
         return 1;
     }
-    int response_code = parse_response_basic(response); // will free the response handler
+    /*int response_code =*/ parse_response_basic(response); // will free the response handler
     //printf("Got response back with code %d \n", response_code); 
     return 0;
 }
@@ -174,7 +174,7 @@ static int microsemi_flashpro_execute_runtest(struct runtest_command *cmd)
         LOG_ERROR("fpClient, call 'execute_runtest' to fpServer expired.");
         return 1;
     }
-    int response_code = parse_response_basic(response); // will free the response handler
+    /*int response_code =*/ parse_response_basic(response); // will free the response handler
     //printf("Got response back with code %d \n", response_code); 
     return 0;
 }
@@ -192,7 +192,7 @@ static int microsemi_flashpro_execute_reset(struct reset_command *cmd)
         LOG_ERROR("fpClient, call 'execute_reset' to fpServer expired.");
         return 1;
     }
-    int response_code = parse_response_basic(response); // will free the response handler
+    /*int response_code =*/ parse_response_basic(response); // will free the response handler
     //printf("Got response back with code %d \n", response_code); 
     return 0;
 }
@@ -210,7 +210,7 @@ static int microsemi_flashpro_execute_pathmove(struct pathmove_command *cmd)
         LOG_ERROR("fpClient, call 'execute_pathmove' to fpServer expired.");
         return 1;
     }
-    int response_code = parse_response_basic(response); // will free the response handler
+    /*int response_code =*/ parse_response_basic(response); // will free the response handler
     //printf("Got response back with code %d \n", response_code); 
     return 0;
 }
@@ -228,7 +228,7 @@ static int microsemi_flashpro_execute_sleep(struct sleep_command *cmd)
         LOG_ERROR("fpClient, call 'execute_sleep' to fpServer expired.");
         return 1;
     }
-    int response_code = parse_response_basic(response); // will free the response handler
+    /*int response_code =*/ parse_response_basic(response); // will free the response handler
     //printf("Got response back with code %d \n", response_code); 
     return 0;
 }

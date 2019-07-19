@@ -135,7 +135,7 @@ struct scan_command parse_scan_command(binn *handle) {
     field.check_value   = (unsigned char *) malloc(sizeof(unsigned char) * num_bytes);
     field.check_mask    = (unsigned char *) malloc(sizeof(unsigned char) * num_bytes);
 
-    uint8_t *out_val_it = field.out_value;
+    uint8_t *out_val_it = (uint8_t *)field.out_value;
     uint8_t *in_val_it  = field.in_value;
 
     int j;
@@ -210,7 +210,7 @@ void mutate_scan_command(binn *handle, struct scan_command *command) {
     int j;
     for (j=0; j*8<field_it->num_bits; j++, in_value_it++) {
       // do not modify const out_val, but read the value from the stream
-      unsigned char out; // not using it here anyway
+      unsigned char out __attribute__((unused)); // not using it here anyway
 
       if (!skip_out_value) {
         out = binn_list_uint8(handle, count++); // read it from the stream and ignore
