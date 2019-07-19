@@ -18,6 +18,24 @@ else
 %C%_openocd_LDADD += -ljim
 endif
 
+# <MICROSEMI>
+# For new win64/linux64 split (fpserver) build
+%C%_openocd_LDADD += -L$(top_srcdir)/src/jtag/drivers/microsemi_flashpro/libbinn/libs -lbinn
+# For win32/linux32 "integrated" build - comment out the above line and 
+# uncomment the following lines (excluding comment lines).
+# if IS_MINGW
+# # For legacy win32 "integrated" build
+# %C%_openocd_LDADD += $(top_srcdir)/src/jtag/drivers/microsemi_flashpro/fpcommwrapper/libs/windows/fpcommwrapper.lib.a
+# else
+# # For legacy linux32 "integrated" build
+# %C%_openocd_LDADD += -L$(top_srcdir)/src/jtag/drivers/microsemi_flashpro/fpcommwrapper/libs/linux \
+#	-lfpcommwrapper -lfpcomm -lfputil -lbase \
+#	-lboost_filesystem-gcc41-mt-1_42 -lboost_thread-gcc41-mt-1_42 \
+#	-lboost_system-gcc41-mt-1_42 -lboost_regex-gcc41-mt-1_42 \
+#	-lgcc_v4_native_standard -lftd2xx_s -ldl -lpthread
+# endif # IS_MINGW
+# </MICROSEMI>
+
 %C%_libopenocd_la_CPPFLAGS =
 
 # banner output includes RELSTR appended to $VERSION from the configure script

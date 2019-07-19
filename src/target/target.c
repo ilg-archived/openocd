@@ -2229,6 +2229,27 @@ static int target_read_buffer_default(struct target *target, target_addr_t addre
 	/* Read the data with as large access size as possible. */
 	for (; size > 0; size /= 2) {
 		uint32_t aligned = count - count % size;
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+		/* MICROSEMI: TODO: explain this change */
+		if (4 == size) 
+		{
+			while (aligned > 0)
+			{
+				int retval = target_read_memory(target, address, size, 1, buffer);
+				if (retval != ERROR_OK)
+				{
+					return retval;
+				}
+				address += 4;
+				count -= 4;
+				buffer += 4;
+				aligned -= 4;
+			}
+		} 
+		else 
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 		if (aligned > 0) {
 			int retval = target_read_memory(target, address, size, aligned / size, buffer);
 			if (retval != ERROR_OK)

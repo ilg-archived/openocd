@@ -72,6 +72,17 @@ DRIVERFILES += %D%/dummy.c
 endif
 if FTDI
 DRIVERFILES += %D%/ftdi.c %D%/mpsse.c
+# <MICROSEMI>
+# For new win64/linux64 split (fpserver) build
+DRIVERFILES += %D%/microsemi_flashpro/microsemi_flashpro.c 
+DRIVERFILES += %D%/microsemi_flashpro/microsemi_api_calls.c
+DRIVERFILES += %D%/microsemi_flashpro/microsemi_socket_client.c
+DRIVERFILES += %D%/microsemi_flashpro/microsemi_timeout.c
+# For legacy win32/linux32 "integrated" build
+# To build this version uncomment the following line and comment out the 
+# above DRIVERFILES += ... lines for the 64 bit version
+# DRIVERFILES += %D%/microsemi_flashpro/microsemi_flashpro_integrated.c 
+# </MICROSEMI>
 endif
 if JTAG_VPI
 DRIVERFILES += %D%/jtag_vpi.c

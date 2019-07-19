@@ -51,6 +51,15 @@
  * any longer.
  */
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+/**
+ * Returns the type of a break point required by address location
+ */
+#define BKPT_TYPE_BY_ADDR(addr) ((addr) < 0x20000000 ? BKPT_HARD : BKPT_SOFT)
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
+
 /* forward declarations */
 static int cortex_m_store_core_reg_u32(struct target *target,
 		uint32_t num, uint32_t value);
@@ -866,7 +875,18 @@ static int cortex_m_step(struct target *target, int current,
 				if (breakpoint)
 					retval = cortex_m_set_breakpoint(target, breakpoint);
 				else
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+					/* MICROSEMI: Allow for s/w BPs in CODE space */
+					retval = breakpoint_add(
+						target, 
+						pc_value, 
+						2, 
+						(cortex_m->auto_bp_type ? BKPT_TYPE_BY_ADDR(pc_value) : BKPT_SOFT));
+#else	
 					retval = breakpoint_add(target, pc_value, 2, BKPT_HARD);
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 				bool tmp_bp_set = (retval == ERROR_OK);
 
 				/* No more breakpoints left, just do a step */
@@ -1129,6 +1149,13 @@ int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint
 		return ERROR_OK;
 	}
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	if (cortex_m->auto_bp_type)
+		breakpoint->type = BKPT_TYPE_BY_ADDR(breakpoint->address);
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
+
 	if (breakpoint->type == BKPT_HARD) {
 		uint32_t fpcr_value;
 		while (comparator_list[fp_num].used && (fp_num < cortex_m->fp_num_code))
@@ -1252,6 +1279,29 @@ int cortex_m_add_breakpoint(struct target *target, struct breakpoint *breakpoint
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS != 1
+	if (cortex_m->auto_bp_type)
+		breakpoint->type = BKPT_TYPE_BY_ADDR(breakpoint->address);
+
+	if (breakpoint->type != BKPT_TYPE_BY_ADDR(breakpoint->address)) {
+		if (breakpoint->type == BKPT_HARD) {
+			LOG_INFO("flash patch comparator requested outside code memory region");
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+
+		/* MICROSEMI: Allow for s/w BPs in CODE space - i.e. disable openocd's
+		 * default behaviour of assuming CODE space (below 0x20000000) is read-
+		 * only and can only support h/w BPs 
+		 */
+		if (breakpoint->type == BKPT_SOFT) {
+			LOG_INFO("soft breakpoint requested in code (flash) memory region");
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+	}
+#endif /* BUILD_MICROSEMI_MODS != 1 */
+/* </MICROSEMI> */
+
 	if ((breakpoint->type == BKPT_HARD) && (cortex_m->fp_code_available < 1)) {
 		LOG_INFO("no flash patch comparator unit available for hardware breakpoint");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
@@ -1282,6 +1332,13 @@ int cortex_m_remove_breakpoint(struct target *target, struct breakpoint *breakpo
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
+
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	if (cortex_m->auto_bp_type)
+		breakpoint->type = BKPT_TYPE_BY_ADDR(breakpoint->address);
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 
 	if (breakpoint->set)
 		cortex_m_unset_breakpoint(target, breakpoint);
@@ -2092,6 +2149,13 @@ int cortex_m_examine(struct target *target)
 
 		/* Setup FPB */
 		target_read_u32(target, FP_CTRL, &fpcr);
+
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+		cortex_m->auto_bp_type = 1;
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
+
 		/* bits [14:12] and [7:4] */
 		cortex_m->fp_num_code = ((fpcr >> 8) & 0x70) | ((fpcr >> 4) & 0xF);
 		cortex_m->fp_num_lit = (fpcr >> 8) & 0xF;
@@ -2441,6 +2505,66 @@ COMMAND_HANDLER(handle_cortex_m_reset_config_command)
 	return ERROR_OK;
 }
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+/* MICROSEMI: Allow for s/w BPs in CODE space */
+COMMAND_HANDLER(handle_cortex_m_auto_bp_type_command)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+	int retval;
+
+	static const Jim_Nvp nvp_auto_bp_type_modes[] = {
+		{ .name = "off",	.value = 0  },
+		{ .name = "on",		.value = 1  },
+		{ .name = "disable",.value = 0  },
+		{ .name = "enable",	.value = 1  },
+		{ .name = "0",		.value = 0  },
+		{ .name = "1",		.value = 1  },
+		{ .name = NULL,		.value = -1 },
+	};
+	const Jim_Nvp *n;
+
+	retval = cortex_m_verify_pointer(CMD_CTX, cortex_m);
+	if (retval == ERROR_OK)
+	{	
+		switch (CMD_ARGC)
+		{
+			case 0:
+			{
+				command_print(CMD_CTX, "cortex_m auto_bp_type is %d", 
+					cortex_m->auto_bp_type);
+				break;
+			}
+			
+			case 1:
+			{
+				n = Jim_Nvp_name2value_simple(nvp_auto_bp_type_modes, CMD_ARGV[0]);
+				if (n->name == NULL)
+				{
+					retval = ERROR_COMMAND_SYNTAX_ERROR;
+				}
+				else 
+				{	
+					cortex_m->auto_bp_type = n->value;
+					command_print(CMD_CTX, "cortex_m auto_bp_type %s", n->name);
+				}
+				break;
+			}
+			
+			default:
+			{
+				retval = ERROR_COMMAND_SYNTAX_ERROR;
+				break;
+			}
+		}
+	}
+
+	return retval;
+}
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
+
 static const struct command_registration cortex_m_exec_command_handlers[] = {
 	{
 		.name = "maskisr",
@@ -2463,6 +2587,18 @@ static const struct command_registration cortex_m_exec_command_handlers[] = {
 		.help = "configure software reset handling",
 		.usage = "['srst'|'sysresetreq'|'vectreset']",
 	},
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	/* MICROSEMI: Allow for s/w BPs in CODE space */
+	{
+		.name = "auto_bp_type",
+		.handler = handle_cortex_m_auto_bp_type_command,
+		.mode = COMMAND_ANY,
+		.help = "force breakpoints in CODE space (below 0x20000000) to be hardware breakpoints (default is 'on')",
+		.usage = "['on'|'off']",
+	},
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 	COMMAND_REGISTRATION_DONE
 };
 static const struct command_registration cortex_m_command_handlers[] = {

@@ -175,6 +175,11 @@ struct cortex_m_common {
 	int fp_code_available;
 	int fp_rev;
 	int fpb_enabled;
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	int auto_bp_type;
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 	struct cortex_m_fp_comparator *fp_comparator_list;
 
 	/* Data Watchpoint and Trace (DWT) */

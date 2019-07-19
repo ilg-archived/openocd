@@ -580,7 +580,18 @@ static int jtagdp_transaction_endcheck(struct adiv5_dap *dap)
 		}
 
 		if (ctrlstat & SSTICKYERR)
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+			/* MICROSEMI: suppress sticky error - this is necessary due to the
+			 * way that the SmartFusion/SmartFusion2 MSS default AMBA slave 
+			 * handles reads of "unimeplemented" memory which is arguably wrong
+			 * and which otherwise causes extraneous errors at this level.
+			 */
+			LOG_DEBUG("JTAG-DP STICKY ERROR");
+#else
 			LOG_ERROR("JTAG-DP STICKY ERROR");
+#endif /* BUILD_MICROSEMI_MODS == 1*/
+/* </MICROSEMI> */
 		if (ctrlstat & SSTICKYORUN)
 			LOG_DEBUG("JTAG-DP STICKY OVERRUN");
 
@@ -591,7 +602,14 @@ static int jtagdp_transaction_endcheck(struct adiv5_dap *dap)
 		if (retval != ERROR_OK)
 			goto done;
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+		/* MICROSEMI: See comments above */
+		retval = (ctrlstat & SSTICKYERR) ? ERROR_OK : ERROR_JTAG_DEVICE_ERROR;
+#else
 		retval = ERROR_JTAG_DEVICE_ERROR;
+#endif /* BUILD_MICROSEMI_MODS == 1*/
+/* </MICROSEMI> */
 	}
 
  done:

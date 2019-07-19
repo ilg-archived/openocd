@@ -67,6 +67,13 @@ NOR_DRIVERS = \
 	%D%/xcf.c \
 	%D%/xmc1xxx.c \
 	%D%/xmc4xxx.c
+    
+# <MICROSEMI>
+NOR_DRIVERS += \
+	%D%/microsemi_fusion_coreahbnvm.c \
+	%D%/microsemi_smartfusion_envm.c \
+	%D%/microsemi_smartfusion2_envm.c
+# </MICROSEMI>
 
 NORHEADERS = \
 	%D%/core.h \

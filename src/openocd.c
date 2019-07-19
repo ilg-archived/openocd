@@ -311,6 +311,35 @@ static int openocd_thread(int argc, char *argv[], struct command_context *cmd_ct
 {
 	int ret;
 
+/* <MICROSEMI> */	
+#if BUILD_MICROSEMI_MODS == 1
+	/*
+	 * MICROSEMI:
+	 * If launched by GNU MCU Eclipse (GME) then strip the trailing -c and 
+	 * 'echo "Started by GNU {ARM|MCU} Eclipse"' command line args. GME uses 
+	 * this string as a simple synchronization mechanism to tell it when it can 
+	 * launch GDB which will then connect to OpenOCD's GDB/MI socket interface.
+	 * However this echo command is processed by parse_config_file() but
+	 * the GDB/MI socket interface is only initialized/configure later by
+	 * command_run_line() so there's a race condition whereby GDB may try to 
+	 * connect before this interface is ready. So instead the string is echoed
+	 * later after we know that the GDB/MI interface is ready and waiting for 
+	 * connections.
+	 * 
+	 * See also: https://sourceforge.net/p/openocd/tickets/147/
+	 */         
+	char *pszGMEbanner;
+	if ((pszGMEbanner = strstr(argv[argc-1], "Started by GNU MCU Eclipse")) ||
+	    (pszGMEbanner = strstr(argv[argc-1], "Started by GNU ARM Eclipse")))
+	{
+		/* Strip trailing quotes */
+		pszGMEbanner[strlen(pszGMEbanner) - 1] = '\0';
+		/* Strip '-c' and 'echo "Started by GNU MCU Eclipse"' args */
+		argc -= 2;
+	}
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */	
+
 	if (parse_cmdline_args(cmd_ctx, argc, argv) != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -337,6 +366,16 @@ static int openocd_thread(int argc, char *argv[], struct command_context *cmd_ct
 			return ERROR_FAIL;
 		}
 	}
+
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	/* MICROSEMI: See comments above */
+	if (pszGMEbanner)
+	{
+		LOG_USER("%s", pszGMEbanner);
+	}
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 
 	ret = server_loop(cmd_ctx);
 

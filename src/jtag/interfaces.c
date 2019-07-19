@@ -135,6 +135,11 @@ extern struct jtag_interface imx_gpio_interface;
 #if BUILD_XDS110 == 1
 extern struct jtag_interface xds110_interface;
 #endif
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+extern struct jtag_interface microsemi_flashpro_interface;
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 #endif /* standard drivers */
 
 /**
@@ -240,6 +245,11 @@ struct jtag_interface *jtag_interfaces[] = {
 #if BUILD_XDS110 == 1
 		&xds110_interface,
 #endif
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+		&microsemi_flashpro_interface,
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 #endif /* standard drivers */
 		NULL,
 	};

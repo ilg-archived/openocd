@@ -175,6 +175,45 @@ static char *find_relative_path(const char *from, const char *to)
 	return relpath;
 }
 
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+/* MICROSEMI: Add <openocd-exedir>/../share/openocd/scripts to default search 
+ * list so that in SoftConsole we don't have to specify
+ * --search ${eclipse_home}/../share/openocd/scripts
+ */		
+
+static void add_softconsole_script_search_dir(void)
+{
+#ifdef _WIN32
+	char sc_script_dir[MAX_PATH];
+	if (GetModuleFileName(NULL, sc_script_dir, MAX_PATH) != 0) {
+
+		/* Convert backslashes to forward slashes */
+		for (char *p = sc_script_dir; *p; p++) {
+			if (*p == '\\')
+				*p = '/';
+		}
+#else
+	char sc_script_dir[PATH_MAX];
+	ssize_t n;
+
+	if ((n = readlink("/proc/self/exe", sc_script_dir, PATH_MAX)) != -1) {
+		sc_script_dir[n] = '\0';
+#endif /* _WIN32 */
+
+		/* Strip executable file name, leaving path */
+		*strrchr(sc_script_dir, '/') = '\0';
+
+		/* Append relative path to scripts */
+		strcat(sc_script_dir, "/../share/openocd/scripts");
+
+		/* Add to search list */		
+		add_script_search_dir(sc_script_dir);
+	}
+}
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
+
 static void add_default_dirs(void)
 {
 	char *path;
@@ -185,6 +224,12 @@ static void add_default_dirs(void)
 	LOG_DEBUG("pkgdatadir=%s", PKGDATADIR);
 	LOG_DEBUG("exepath=%s", exepath);
 	LOG_DEBUG("bin2data=%s", bin2data);
+
+/* <MICROSEMI> */
+#if BUILD_MICROSEMI_MODS == 1
+	add_softconsole_script_search_dir();
+#endif /* BUILD_MICROSEMI_MODS == 1 */
+/* </MICROSEMI> */
 
 	/*
 	 * The directory containing OpenOCD-supplied scripts should be

@@ -323,6 +323,10 @@ AC_ARG_ENABLE([branding],
   AS_HELP_STRING([--enable-branding], [Add a branding string to the greeting message]),
   [build_branding=$enableval], [build_branding=none])
 
+AC_ARG_ENABLE([microsemi_mods],
+  AS_HELP_STRING([--enable-microsemi-mods], [Enable building support for Microsemi devices]),
+  [build_microsemi_mods=$enableval], [build_microsemi_mods=no])
+
 AC_ARG_ENABLE([oocd_trace],
   AS_HELP_STRING([--enable-oocd_trace],
   [Enable building support for some prototype OpenOCD+trace ETM capture hardware]),
@@ -576,6 +580,12 @@ AS_IF([test "x$build_riscv" = "xyes"], [
 AS_IF([test "x$build_branding" = "xnone"], [
 ], [
   AC_DEFINE_UNQUOTED([BUILD_BRANDING], ["$build_branding"], [The branding string.])
+])
+
+AS_IF([test "x$build_microsemi_mods" = "xyes"], [
+  AC_DEFINE([BUILD_MICROSEMI_MODS], [1], [1 if you want support for the Microsemi devices.])
+], [
+  AC_DEFINE([BUILD_MICROSEMI_MODS], [0], [0 if you don't want support for the Microsemi devices.])
 ])
 
 AS_IF([test "x$build_oocd_trace" = "xyes"], [
