@@ -668,6 +668,10 @@ static int stm32x_write(struct flash_bank *bank, const uint8_t *buffer,
 
 	/* multiple words (32-bytes) to be programmed in block */
 	if (blocks_remaining) {
+		retval = target_write_u32(target, stm32x_get_flash_reg(bank, FLASH_CR), FLASH_PG | FLASH_PSIZE_64);
+		if (retval != ERROR_OK)
+			goto flash_lock;
+
 		retval = stm32x_write_block(bank, buffer, offset, blocks_remaining);
 		if (retval != ERROR_OK) {
 			if (retval == ERROR_TARGET_RESOURCE_NOT_AVAILABLE) {
